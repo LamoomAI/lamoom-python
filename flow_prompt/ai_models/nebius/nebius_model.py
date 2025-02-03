@@ -2,6 +2,7 @@ from flow_prompt.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 
 from flow_prompt.ai_models.constants import C_1M
+from flow_prompt.ai_models.ai_model_registry import AIModelRegistry
 from flow_prompt.responses import AIResponse
 from decimal import Decimal
 
@@ -48,7 +49,7 @@ NEBIUS_AI_PRICING = {
     }
 }
 
-
+@AIModelRegistry.register('nebius', {'model'})
 @dataclass(kw_only=True)
 class NebiusAIModel(AIModel):
     model: str

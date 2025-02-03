@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from flow_prompt.ai_models.claude.responses import ClaudeAIReponse
 from flow_prompt.ai_models.claude.constants import HAIKU, SONNET, OPUS
 from flow_prompt.ai_models.utils import get_common_args
+from flow_prompt.ai_models.ai_model_registry import AIModelRegistry
 
 from openai.types.chat import ChatCompletionMessage as Message
 from flow_prompt.responses import Prompt
@@ -55,6 +56,7 @@ CLAUDE_AI_PRICING = {
 }
 
 
+@AIModelRegistry.register('claude', {'model'})
 @dataclass(kw_only=True)
 class ClaudeAIModel(AIModel):
     model: str

@@ -8,10 +8,13 @@ from flow_prompt import settings
 from flow_prompt.ai_models.ai_model import AI_MODELS_PROVIDER
 from flow_prompt.ai_models.openai.openai_models import FamilyModel, OpenAIModel
 from flow_prompt.exceptions import ProviderNotFoundError
+from flow_prompt.ai_models.ai_model_registry import AIModelRegistry
+
 
 logger = logging.getLogger(__name__)
 
 
+@AIModelRegistry.register('azure', {'realm', 'deployment_id'})
 @dataclass(kw_only=True)
 class AzureAIModel(OpenAIModel):
     realm: t.Optional[str]

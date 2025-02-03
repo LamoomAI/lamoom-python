@@ -10,7 +10,7 @@ import typing as t
 from dataclasses import dataclass
 
 from flow_prompt.ai_models.gemini.responses import GeminiAIResponse
-
+from flow_prompt.ai_models.ai_model_registry import AIModelRegistry
 from flow_prompt.ai_models.utils import get_common_args
 from openai.types.chat import ChatCompletionMessage as Message
 from flow_prompt.responses import Prompt
@@ -68,6 +68,7 @@ GEMINI_AI_PRICING = {
 }
 
 
+@AIModelRegistry.register('gemini', {'model'})
 @dataclass(kw_only=True)
 class GeminiAIModel(AIModel):
     model: str
