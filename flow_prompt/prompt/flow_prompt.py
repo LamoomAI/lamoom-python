@@ -31,6 +31,7 @@ class FlowPrompt:
     claude_key: str = None
     gemini_key: str = None
     azure_keys: t.Dict[str, str] = None
+    nebius_key: str = None
     secrets: Secrets = None
 
     clients = {}
@@ -59,6 +60,11 @@ class FlowPrompt:
             logger.debug(f"Using Claude API key from secrets")
             self.claude_key = self.secrets.CLAUDE_API_KEY
         self.service = FlowPromptService()
+        if self.nebius_key:
+            self.clients[AI_MODELS_PROVIDER.NEBIUS] = {
+                'api_key': self.nebius_key,
+                'base_url': "https://api.studio.nebius.ai/v1/"
+            }
         if self.openai_key:
             self.clients[AI_MODELS_PROVIDER.OPENAI] = {
                 'organization': self.openai_org,
@@ -140,6 +146,7 @@ class FlowPrompt:
             """
             Create CI/CD when calling first time
             """
+        
             try:
                 result = current_attempt.ai_model.call(
                     calling_messages.get_messages(),
