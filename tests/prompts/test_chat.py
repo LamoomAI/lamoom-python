@@ -1,6 +1,7 @@
 
 
-from flow_prompt.prompt.chat import ChatsEntity
+
+from lamoom.prompt.chat import ChatsEntity
 
 
 def test_chats_entity_resolve_not_multiple():

@@ -3,13 +3,13 @@ import pytest
 import dotenv
 dotenv.load_dotenv(dotenv.find_dotenv())
 
-from flow_prompt.ai_models import behaviour
-from flow_prompt.ai_models.attempt_to_call import AttemptToCall
-from flow_prompt.ai_models.openai.azure_models import AzureAIModel
-from flow_prompt.ai_models.openai.openai_models import C_128K, C_32K, OpenAIModel
+from lamoom.ai_models import behaviour
+from lamoom.ai_models.attempt_to_call import AttemptToCall
+from lamoom.ai_models.openai.azure_models import AzureAIModel
+from lamoom.ai_models.openai.openai_models import C_128K, C_32K, OpenAIModel
 from openai.types.chat.chat_completion import ChatCompletion
-from flow_prompt.prompt.flow_prompt import FlowPrompt
-from flow_prompt.prompt.pipe_prompt import PipePrompt
+from lamoom.prompt.lamoom import Lamoom
+from lamoom.prompt.prompt import Prompt
 
 import logging
 
@@ -19,8 +19,8 @@ def set_log_level():
     logging.getLogger().setLevel(logging.DEBUG)
 
 @pytest.fixture
-def flow_prompt():
-    return FlowPrompt(
+def lamoom():
+    return Lamoom(
         openai_key="123",
         azure_keys={"us-east-1": {"url": "https://us-east-1.api.azure.openai.org", "key": "123"}}
     )
@@ -92,8 +92,8 @@ def gpt_4_behaviour():
 
 @pytest.fixture
 def hello_world_prompt():
-    prompt = PipePrompt(id='hello-world')
-    prompt.add("I'm FlowPrompt, and I just broke up with my girlfriend, Python. She said I had too many 'undefined behaviors'. 🐍💔 ")
+    prompt = Prompt(id='hello-world')
+    prompt.add("I'm Lamoom, and I just broke up with my girlfriend, Python. She said I had too many 'undefined behaviors'. 🐍💔 ")
     prompt.add("""
 I'm sorry to hear about your breakup with Python. It sounds like a challenging situation, 
 especially with 'undefined behaviors' being a point of contention. Remember, in the world of programming and AI, 

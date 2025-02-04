@@ -2,9 +2,9 @@ import pytest
 from decimal import Decimal
 from unittest.mock import patch, MagicMock
 
-from flow_prompt.ai_models.gemini.gemini_model import GeminiAIModel, FamilyModel
-from flow_prompt.exceptions import RetryableCustomError, ConnectionLostError
-from flow_prompt.responses import AIResponse, Prompt
+from lamoom.ai_models.gemini.gemini_model import GeminiAIModel, FamilyModel
+from lamoom.exceptions import RetryableCustomError, ConnectionLostError
+from lamoom.responses import AIResponse, Prompt
 from openai.types.chat import ChatCompletionMessage as Message
 
 
@@ -24,7 +24,7 @@ def test_gemini_ai_model_initialization_unknown_family():
     assert model.family == FamilyModel.flash.value  # Default value as set in the class
 
 
-@patch("flow_prompt.ai_models.gemini.gemini_model.genai.GenerativeModel")
+@patch("lamoom.ai_models.gemini.gemini_model.genai.GenerativeModel")
 def test_gemini_ai_model_call(mock_gen_model):
     mock_response = MagicMock()
     mock_response.text = "Test response"
@@ -43,7 +43,7 @@ def test_gemini_ai_model_call(mock_gen_model):
     assert response.message.content == "Test response"
 
 
-@patch("flow_prompt.ai_models.gemini.gemini_model.genai.GenerativeModel")
+@patch("lamoom.ai_models.gemini.gemini_model.genai.GenerativeModel")
 def test_gemini_ai_model_call_with_stream(mock_gen_model):
     mock_chunk = MagicMock()
     mock_chunk.text = "chunk text"
@@ -109,7 +109,7 @@ def test_gemini_ai_model_get_sample_price():
     assert price == expected_price
 
 
-@patch("flow_prompt.ai_models.gemini.gemini_model.genai.GenerativeModel")
+@patch("lamoom.ai_models.gemini.gemini_model.genai.GenerativeModel")
 def test_gemini_ai_model_call_with_connection_lost(mock_gen_model):
     mock_chunk = MagicMock()
     mock_chunk.text = "chunk text"
@@ -138,7 +138,7 @@ def test_gemini_ai_model_call_with_connection_lost(mock_gen_model):
         )
 
 
-@patch("flow_prompt.ai_models.gemini.gemini_model.genai.GenerativeModel")
+@patch("lamoom.ai_models.gemini.gemini_model.genai.GenerativeModel")
 def test_gemini_ai_model_call_with_retryable_error(mock_gen_model):
     mock_gen_model().generate_content.side_effect = Exception("Test Exception")
 

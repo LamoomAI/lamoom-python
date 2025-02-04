@@ -1,26 +1,20 @@
 import json
 import logging
 import os
-from time import sleep
 import time
 
 from pytest import fixture
-from flow_prompt import FlowPrompt, behaviour, PipePrompt, AttemptToCall, AzureAIModel, ClaudeAIModel, GeminiAIModel, OpenAIModel, C_128K
+import dotenv
+dotenv.load_dotenv(dotenv.find_dotenv())
+from lamoom import Lamoom, behaviour, Prompt, AttemptToCall, AzureAIModel, ClaudeAIModel, C_128K
 logger = logging.getLogger(__name__)
 
 
 @fixture
-def fp():
-    azure_keys = json.loads(os.getenv("AZURE_KEYS", "{}"))
-    openai_key = os.getenv("OPENAI_API_KEY")
-    claude_key = os.getenv("CLAUDE_API_KEY")
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    flow_prompt = FlowPrompt(
-        openai_key=openai_key,
-        azure_keys=azure_keys,
-        claude_key=claude_key,
-        gemini_key=gemini_key)
-    return flow_prompt
+def lamoom_client():
+
+    lamoom = Lamoom()
+    return lamoom
 
 
 @fixture
@@ -90,7 +84,7 @@ def stream_check_connection(validate, **kwargs):
     return validate
 
 
-def test_openai_pricing(fp, openai_behaviour_4o, openai_behaviour_4o_mini):
+def test_openai_pricing(lamoom_client: Lamoom, openai_behaviour_4o: behaviour.AIModelsBehaviour, openai_behaviour_4o_mini: behaviour.AIModelsBehaviour):
 
     context = {
         'ideal_answer': "There are eight planets",
@@ -98,18 +92,18 @@ def test_openai_pricing(fp, openai_behaviour_4o, openai_behaviour_4o_mini):
     }
 
     # initial version of the prompt
-    prompt_id = f'test-{time.time()}'
-    fp.service.clear_cache()
-    prompt = PipePrompt(id=prompt_id) 
+    prompt_id = f'unit-test_openai_pricing'
+    lamoom_client.service.clear_cache()
+    prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
 
-    result_4o = fp.call(prompt.id, context, openai_behaviour_4o, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
-    result_4o_mini = fp.call(prompt.id, context, openai_behaviour_4o_mini, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    result_4o = lamoom_client.call(prompt.id, context, openai_behaviour_4o, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    result_4o_mini = lamoom_client.call(prompt.id, context, openai_behaviour_4o_mini, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     
     assert result_4o.metrics.price_of_call > result_4o_mini.metrics.price_of_call
     
 
-def test_claude_pricing(fp, claude_behaviour_haiku, claude_behaviour_sonnet):
+def test_claude_pricing(lamoom_client, claude_behaviour_haiku, claude_behaviour_sonnet):
 
     context = {
         'ideal_answer': "There are eight planets",
@@ -118,9 +112,9 @@ def test_claude_pricing(fp, claude_behaviour_haiku, claude_behaviour_sonnet):
 
     # initial version of the prompt
     prompt_id = f'test-{time.time()}'
-    fp.service.clear_cache()
-    prompt = PipePrompt(id=prompt_id) 
+    lamoom_client.service.clear_cache()
+    prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
     
-    fp.call(prompt.id, context, claude_behaviour_haiku, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
-    fp.call(prompt.id, context, claude_behaviour_sonnet, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    lamoom_client.call(prompt.id, context, claude_behaviour_haiku, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    lamoom_client.call(prompt.id, context, claude_behaviour_sonnet, test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})

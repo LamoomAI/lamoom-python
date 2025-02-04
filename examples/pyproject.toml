@@ -2,12 +2,12 @@
 name = "examples"
 version = "0.1.0"
 description = ""
-authors = ["Flow-prompt Engineering Team <engineering@flow-prompt.com>"]
+authors = ["Lamoom Engineering Team <engineering@lamoom.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-flow-prompt = {version = "^0.1.4a11", source = "test"}
+lamoom = {version = "^0.1.4a11", source = "test"}
 python-dotenv = "^1.0.1"
 
 [[tool.poetry.source]]
