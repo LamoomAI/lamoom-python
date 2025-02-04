@@ -132,7 +132,9 @@ class LamoomService:
             "response": {"content": response.content},
             "metrics": asdict(response.metrics),
             "request": asdict(response.prompt),
+            'timestamp': response.id.split('#')[1]
         }
+        
         logger.debug(f"Request to {url} with data: {data}")
         json_data = json.dumps(data, cls=DecimalEncoder)
 
@@ -141,6 +143,31 @@ class LamoomService:
             return response.json()
         else:
             logger.error(response)
+          
+    @classmethod  
+    def update_response_ideal_answer(
+        cls,
+        api_token: str,
+        log_id: str,
+        ideal_answer: str
+    ):
+        url = f"{cls.url}lib/logs"
+        headers = {"Authorization": f"Token {api_token}"}
+        data = {
+            "log_id": log_id,
+            "ideal_answer": ideal_answer
+        }
+        
+        logger.debug(f"Request to {url} with data: {data}")
+        json_data = json.dumps(data, cls=DecimalEncoder)
+
+        response = requests.put(url, headers=headers, data=json_data)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(response)
+            return response
 
     @classmethod
     def create_test_with_ideal_answer(
@@ -166,3 +193,91 @@ class LamoomService:
         json_data = json.dumps(data)
         requests.post(url, headers=headers, data=json_data)
         logger.info(f"Created Ci/CD for prompt {prompt_data['prompt_id']}")
+
+    @classmethod
+    def update_user_overview(
+        cls,
+        user_id: str,
+        overview: str,
+        api_token: str
+    ):
+        url = f"{cls.url}lib/files?updateOverview"
+        headers = {"Authorization": f"Token {api_token}"}
+        data = {
+            'user_id': user_id,
+            "overview": overview,
+        }
+        json_data = json.dumps(data)
+        logger.debug(f"Request to {url} with data: {data}")
+        response = requests.post(url, headers=headers, data=json_data)
+        logger.info(f"Update overview of the user: ${user_id}")
+        
+        return response
+    
+    @classmethod
+    def get_file_names(
+        cls, 
+        prefix: str,
+        user_id: str,
+        api_token: str,
+    ):
+        url = f"{cls.url}lib/files?getFileNames&prefix={prefix}&user_id={user_id}"
+        headers = {"Authorization": f"Token {api_token}"}
+
+        logger.debug(f"Request to {url}")
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            logger.info(f"Fetched filenames for user - ${user_id} from {prefix}")
+            return response.json()
+        else:
+            logger.error(response)
+            return response
+        
+    @classmethod
+    def get_files(
+        cls,
+        paths: list,
+        user_id: str,
+        api_token: str,
+    ):
+        url = f"{cls.url}lib/files?getFiles"
+        headers = {"Authorization": f"Token {api_token}"}
+        data = {
+            'user_id': user_id,
+            'paths': paths
+        }
+        
+        json_data = json.dumps(data)
+        response = requests.post(url=url, headers=headers, data=json_data)
+
+        if response.status_code == 200:
+            logger.info(f"Fetched files for user - ${user_id}")
+            return response.json()
+        else:
+            logger.error(response)
+            return response
+    
+    @classmethod
+    def save_files(
+        cls, 
+        files: dict,
+        user_id: str,
+        api_token: str,
+    ):
+        url = f"{cls.url}lib/files?saveFiles"
+        headers = {"Authorization": f"Token {api_token}"}
+        data = {
+            'user_id': user_id,
+            'files': files,
+        }
+        
+        json_data = json.dumps(data)
+        response = requests.post(url=url, headers=headers, data=json_data)
+
+        if response.status_code == 200:
+            logger.info(f"Saved files for user - ${user_id}")
+            return response.json()
+        else:
+            logger.error(response)
+            return response

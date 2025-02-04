@@ -25,7 +25,7 @@ lint:
 	poetry run isort --settings-path pyproject.toml --check-only .
 
 test:
-	poetry run pytest -vv tests \
+	poetry run pytest --cache-clear -vv tests \
 		--cov=${PROJECT_FOLDER} \
 		--cov-config=.coveragerc \
 		--cov-fail-under=81 \

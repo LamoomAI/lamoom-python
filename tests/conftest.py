@@ -47,8 +47,8 @@ def azure_gpt_4_behaviour():
         attempts=[
             AttemptToCall(
                 ai_model=AzureAIModel(
-                    realm='us-east-1',
-                    deployment_id="gpt-4-1106-preview",
+                    realm='useast',
+                    deployment_id="gpt-4o",
                     max_tokens=C_128K,
                     support_functions=True,
                 ),
@@ -64,8 +64,8 @@ def gpt_4_behaviour():
         attempts=[
             AttemptToCall(
                 ai_model=AzureAIModel(
-                    realm='us-east-1',
-                    deployment_id='gpt-4-turbo',
+                    realm='useast',
+                    deployment_id='gpt-4o',
                     max_tokens=C_128K,
                 ),
                 weight=1,

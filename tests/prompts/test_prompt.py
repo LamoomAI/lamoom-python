@@ -9,17 +9,19 @@ from lamoom.prompt.prompt import Prompt
 import pytest
 
 
+
 @pytest.fixture
 def azure_ai_attempt():
     return AttemptToCall(
         ai_model=AzureAIModel(
-            realm='us-east-1',
-            deployment_id="gpt-4-1106-preview",
+            realm='useast',
+            deployment_id="gpt-4o",
             max_tokens=C_128K,
             support_functions=True,
         ),
         weight=100,
     )
+
 
 def test_load_dump_prompt():
     prompt = Prompt(id='hello-world', max_tokens=100)

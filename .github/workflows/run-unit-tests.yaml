@@ -17,6 +17,8 @@ jobs:
         echo CLAUDE_API_KEY=${{ secrets.CLAUDE_API_KEY }} >> .env
         echo GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} >> .env
         echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env
+        echo LAMOOM_API_URI=${{ secrets.LAMOOM_API_URI }} >> .env
+        echo LAMOOM_API_TOKEN=${{ secrets.LAMOOM_API_TOKEN }} >> .env
         cat .env
 
     - name: Install dependencies

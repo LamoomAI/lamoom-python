@@ -33,6 +33,7 @@ class AIResponse:
     finish_reason: str = ""
     prompt: Prompt = field(default_factory=Prompt)
     metrics: Metrics = field(default_factory=Metrics)
+    id: str = ""
 
     @property
     def response(self) -> str:

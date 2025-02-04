@@ -6,7 +6,7 @@ class RetryableCustomError(LamoomError):
     pass
 
 
-class LamoomIsnotFoundError(LamoomError):
+class LamoomPromptIsnotFoundError(LamoomError):
     pass
 
 

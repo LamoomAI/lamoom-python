@@ -3,13 +3,14 @@ import typing as t
 from dataclasses import dataclass
 from decimal import Decimal
 import requests
+import time
 from lamoom.settings import LAMOOM_API_URI
 from lamoom import Secrets, settings
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
 from lamoom.exceptions import (
-    LamoomIsnotFoundError,
+    LamoomPromptIsnotFoundError,
     RetryableCustomError
 )
 from lamoom.services.SaveWorker import SaveWorker
@@ -168,6 +169,9 @@ class Lamoom:
                 result.metrics.latency = current_timestamp_ms() - start_time
 
                 if settings.USE_API_SERVICE and self.api_token:
+                    timestamp = int(time.time() * 1000)
+                    result.id = f"{prompt_id}#{timestamp}"
+                    
                     self.worker.add_task(
                         self.api_token,
                         prompt.service_dump(),
@@ -221,11 +225,75 @@ class Lamoom:
                     return prompt
                 else:
                     logger.exception(f"Prompt {prompt_id} not found")
-                    raise LamoomIsnotFoundError()
+                    raise LamoomPromptIsnotFoundError()
 
         else:
             return settings.PIPE_PROMPTS[prompt_id]
 
+
+    def add_ideal_answer(
+        self,
+        response_id: str,
+        ideal_answer: str
+    ):
+        response = LamoomService.update_response_ideal_answer(
+            self.api_token, response_id, ideal_answer
+        )
+        
+        return response
+    
+    def update_overview(self, overview: str, user_id: str = None):
+        """Update user's overview
+
+        Args:
+            user_id (str): user id,
+            overview (str): new overview to replace the old one
+        """
+        
+        response = LamoomService.update_user_overview(user_id, overview, self.api_token)
+        
+        return response
+    
+    def get_file_names(self, prefix: str, user_id: str = None):
+        """Fetch all filenames of the given user
+
+        Args:
+            prefix (str): s3 bucket folder name to fetch from
+            user_id (str): user identifier
+
+        Returns:
+            list: list of file names
+        """
+        response = LamoomService.get_file_names(prefix, user_id, self.api_token)
+        
+        return response
+
+    def get_files(self, paths: list[str], user_id: str = None):
+        """Method to fetch file contents by the provided s3 paths
+
+        Args:
+            paths (list[str]): paths to s3 bucket files
+            user_id (str): user identifier
+        
+        Returns: 
+            dict: key = path, value: file content 
+        """
+        
+        response = LamoomService.get_files(paths, user_id, self.api_token)
+        
+        return response
+    
+    def save_files(self, files: dict, user_id: str = None):
+        """Method to save files into FPS S3 bucket
+
+        Args:
+            files (dict): dictionary where key = file_name (relative path), val = file_content
+        """
+        
+        response = LamoomService.save_files(files, user_id, self.api_token)
+        
+        return response
+    
     def calculate_budget_for_text(self, user_prompt: UserPrompt, text: str) -> int:
         if not text:
             return 0
