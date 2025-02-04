@@ -10,15 +10,12 @@ from pytest import fixture
 from lamoom import Lamoom, behaviour, Prompt, AttemptToCall, AzureAIModel, C_128K
 logger = logging.getLogger(__name__)
 
-LAMOOM_API_URI='https://api.flow-prompt.com/'
-LAMOOM_API_TOKEN='cjgiKpfVKAl6BNwlxZAURVF/33BzGev1KSjeQgMEnh/BbbKXprlqdgLVsOwdGfG//sGHr+NqPVtzUa72G6iV4YO/ARthxF1ydXagxDmeYR7J6ueXbJ2vXvoYqUgGzmEqDLY9nUOC+EHMrgPLQMtarbyvnpgjxJ65E+3U75KY4igykzUDttFHmSOTQTkEaHB7n4yj1wPI4nADR52MFDme7PglXKyOa9TiIiiW7l5+lperIauWV1GJ58Mo99+NykjmUe2vxILnTLetm2DkJTQ7eSAfz0lmmcty7GQAxGogUQhgoC/Ov+QAaNwNT2IvPGsXROagLHUDjPNOMFXVfeEeVQ=='
-
 
 @fixture
 def client():
     import dotenv
     dotenv.load_dotenv(dotenv.find_dotenv())
-    lamoom = Lamoom(api_token=LAMOOM_API_TOKEN)
+    lamoom = Lamoom()
     return lamoom
 
 
