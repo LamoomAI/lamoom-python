@@ -9,6 +9,7 @@ from openai import OpenAI
 from flow_prompt.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 from flow_prompt.ai_models.constants import C_128K, C_16K, C_32K, C_4K
 from flow_prompt.ai_models.openai.responses import OpenAIResponse
+from flow_prompt.ai_models.ai_model_registry import AIModelRegistry
 from flow_prompt.ai_models.utils import get_common_args
 from flow_prompt.exceptions import ConnectionLostError
 
@@ -86,6 +87,7 @@ OPEN_AI_PRICING = {
 }
 
 
+@AIModelRegistry.register('openai', {'model'})
 @dataclass(kw_only=True)
 class OpenAIModel(AIModel):
     model: t.Optional[str]

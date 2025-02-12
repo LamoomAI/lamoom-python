@@ -1,12 +1,18 @@
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from flow_prompt.ai_models.ai_model import AIModel
+from flow_prompt.ai_models.ai_model_registry import AIModelRegistry
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class AttemptToCall:
-    ai_model: AIModel
+    provider: str = None
+    ai_model: AIModel = None
     weight: int = 1  # from 1 to 100, the higher weight the more often it will be called
     # if you wish to limit functions that can be used, or to turn off calling openai functions for this attempt:
     # [] - if empty list of functions, functions are not supported for that call
@@ -14,13 +20,33 @@ class AttemptToCall:
     # ['function1', 'function2'] - if list of functions, only those functions will be called
     functions: t.List[str] = None
     attempt_number: int = 1
+    model_params: dict = None
 
+    def __init__(self, **kwargs):
+        self.provider = kwargs.pop('provider', None)
+        self.weight = kwargs.pop('weight', 1)
+        self.attempt_number = kwargs.pop('attempt_number', 1)
+        self.functions = kwargs.pop('functions', None)
+        self.ai_model = kwargs.pop('ai_model', None)
+
+        self.model_params = kwargs
+        self.__post_init__()
+    
     def __post_init__(self):
-        self.id = (
-            f"{self.ai_model.name}"
-            f"-n{self.attempt_number}-"
-            f"{self.ai_model.provider.value}"
-        )
+        try:
+            if not self.ai_model:
+                self.ai_model = AIModelRegistry.create(
+                    self.provider,
+                    **self.model_params
+                )
+            self.id = (
+                f"{self.ai_model.name}"
+                f"-n{self.attempt_number}-"
+                f"{self.ai_model.provider.value}"
+            )
+        except ValueError as e:
+            logger.error(f"Invalid model configuration for {self.provider}: {str(e)}")
+            raise
 
     def __str__(self) -> str:
         return self.id

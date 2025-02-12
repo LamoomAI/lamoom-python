@@ -22,6 +22,7 @@ from flow_prompt.ai_models.openai.openai_models import (
 from flow_prompt.ai_models.openai.azure_models import AzureAIModel
 from flow_prompt.ai_models.claude.claude_model import ClaudeAIModel
 from flow_prompt.ai_models.gemini.gemini_model import GeminiAIModel
+from flow_prompt.ai_models.nebius.nebius_model import NebiusAIModel
 from flow_prompt.responses import AIResponse
 from flow_prompt.ai_models.openai.responses import OpenAIResponse
 from flow_prompt.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
