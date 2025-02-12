@@ -28,11 +28,9 @@ def nebius_behaviour_new():
         attempts=[
             AttemptToCall(
                 provider='nebius',
-                model_params={
-                    'model': "deepseek-ai/DeepSeek-V3",
-                    'max_tokens': C_128K,
-                    'support_functions': True,
-                },
+                model = "deepseek-ai/DeepSeek-V3",
+                max_tokens = C_128K,
+                support_functions = True,
                 weight=100,
             )
         ]
@@ -93,4 +91,4 @@ def test_nebius_behavior(fp, nebius_behaviour_new, nebius_behaviour_old):
     logger.info(response_new.content)
     logger.info(response_old.content)
     
-    assert response_new.content & response_old.content
+    assert response_new.content and response_old.content

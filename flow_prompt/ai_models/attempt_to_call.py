@@ -20,8 +20,18 @@ class AttemptToCall:
     # ['function1', 'function2'] - if list of functions, only those functions will be called
     functions: t.List[str] = None
     attempt_number: int = 1
-    model_params: t.Dict[str, t.Any] = field(default_factory=dict)
+    model_params: dict = None
 
+    def __init__(self, **kwargs):
+        self.provider = kwargs.pop('provider', None)
+        self.weight = kwargs.pop('weight', 1)
+        self.attempt_number = kwargs.pop('attempt_number', 1)
+        self.functions = kwargs.pop('functions', None)
+        self.ai_model = kwargs.pop('ai_model', None)
+
+        self.model_params = kwargs
+        self.__post_init__()
+    
     def __post_init__(self):
         try:
             if not self.ai_model:
