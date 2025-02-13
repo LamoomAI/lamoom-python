@@ -479,14 +479,14 @@ testing = ["covdefaults (>=2.3)", "coverage (>=7.3.2)", "diff-cover (>=8)", "pyt
 typing = ["typing-extensions (>=4.8)"]
 
 [[package]]
-name = "flow-prompt"
+name = "lamoom"
 version = "0.1.4a9"
 description = ""
 optional = false
 python-versions = ">=3.9,<4.0"
 files = [
-    {file = "flow_prompt-0.1.4a9-py3-none-any.whl", hash = "sha256:b15b31f4fb934082afb6570033ac928bcc3fc077c83f27b5125325883bf3370c"},
-    {file = "flow_prompt-0.1.4a9.tar.gz", hash = "sha256:8959fe002efba51d9ca0059e848b8617b97d98dac0a43124f714ae8e04dcc0eb"},
+    {file = "lamoom-0.1.4a9-py3-none-any.whl", hash = "sha256:b15b31f4fb934082afb6570033ac928bcc3fc077c83f27b5125325883bf3370c"},
+    {file = "lamoom-0.1.4a9.tar.gz", hash = "sha256:8959fe002efba51d9ca0059e848b8617b97d98dac0a43124f714ae8e04dcc0eb"},
 ]
 
 [package.dependencies]

@@ -43,7 +43,7 @@ repos:
 
   # - id: flake8
   #   name: Validate with flake8
-  #   entry: poetry run flake8 flow_prompt
+  #   entry: poetry run flake8 lamoom
   #   language: system
   #   pass_filenames: false
   #   types: [python]

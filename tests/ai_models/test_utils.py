@@ -2,8 +2,7 @@ import pytest
 import requests
 import openai
 from unittest.mock import Mock
-
-from flow_prompt.ai_models.openai.exceptions import (
+from lamoom.ai_models.openai.exceptions import (
     OpenAIAuthenticationError,
     OpenAIBadRequestError,
     OpenAIChunkedEncodingError,
@@ -15,7 +14,7 @@ from flow_prompt.ai_models.openai.exceptions import (
     OpenAITimeoutError,
     OpenAIUnknownError,
 )
-from flow_prompt.ai_models.openai.utils import raise_openai_exception
+from lamoom.ai_models.openai.utils import raise_openai_exception
 
 @pytest.fixture
 def mock_response():

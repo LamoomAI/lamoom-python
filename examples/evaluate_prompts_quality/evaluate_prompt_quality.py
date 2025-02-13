@@ -1,20 +1,20 @@
 import logging
 import random
-from flow_prompt import FlowPrompt, behaviour, AttemptToCall, AzureAIModel, C_128K
+from lamoom import Lamoom, behaviour, AttemptToCall, AzureAIModel, C_128K
 from prompt import prompt_to_evaluate_prompt
-from flow_prompt_service import get_all_prompts, get_logs
+from lamoom_service import get_all_prompts, get_logs
 logger = logging.getLogger(__name__)
 
 
 
-flow_prompt = FlowPrompt()
+lamoom = Lamoom()
 
 gpt4_behaviour = behaviour.AIModelsBehaviour(
     attempts=[
         AttemptToCall(
             ai_model=AzureAIModel(
-                realm='westus',
-                deployment_id="gpt-4-turbo",
+                realm='useast',
+                deployment_id="gpt-4o",
                 max_tokens=C_128K,
                 support_functions=True,
             ),
@@ -41,7 +41,7 @@ def main():
             'prompt_data': prompt_chats,
             'prompt_id': prompt_id,
         }
-        result = flow_prompt.call(prompt_to_evaluate_prompt.id, context, gpt4_behaviour)
+        result = lamoom.call(prompt_to_evaluate_prompt.id, context, gpt4_behaviour)
         print(result.content)
 
 if __name__ == '__main__':

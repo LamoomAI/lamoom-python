@@ -1,7 +1,7 @@
 
-from flow_prompt import PipePrompt
+from lamoom import Prompt
 
-prompt_to_evaluate_prompt = PipePrompt(id="prompt-improver")
+prompt_to_evaluate_prompt = Prompt(id="prompt-improver")
 
 prompt_to_evaluate_prompt.add(role="system", content="You're a prompt engineer, tasked with evaluating and improving prompt quality.")
 
