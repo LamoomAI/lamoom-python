@@ -46,6 +46,6 @@ class Secrets:
     OPENAI_ORG: str = field(default_factory=lambda: os.getenv("OPENAI_ORG"))
     azure_keys: dict = field(
         default_factory=lambda: json.loads(
-            os.getenv("azure_keys", os.getenv("AZURE_OPENAI_KEYS", "{}"))
+            os.getenv("azure_keys", os.getenv("AZURE_OPENAI_KEYS", os.getenv("AZURE_KEYS", "{}")))
         )
     )
