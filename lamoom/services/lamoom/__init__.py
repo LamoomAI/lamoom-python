@@ -62,7 +62,7 @@ class LamoomService:
                     is_taken_globally=cached_prompt_taken_globally,
                 )
 
-        url = f"{self.url}lib/prompts"
+        url = f"{self.url}/lib/prompts"
         headers = {
             "Authorization": f"Token {api_token}",
         }
@@ -124,7 +124,7 @@ class LamoomService:
         context: t.Dict[str, t.Any],
         response: AIResponse,
     ):
-        url = f"{cls.url}lib/logs"
+        url = f"{cls.url}/lib/logs"
         headers = {"Authorization": f"Token {api_token}"}
         data = {
             "context": context,
@@ -148,7 +148,7 @@ class LamoomService:
     def update_response_ideal_answer(
         cls, api_token: str, log_id: str, ideal_answer: str
     ):
-        url = f"{cls.url}lib/logs"
+        url = f"{cls.url}/lib/logs"
         headers = {"Authorization": f"Token {api_token}"}
         data = {"log_id": log_id, "ideal_answer": ideal_answer}
 
@@ -174,7 +174,7 @@ class LamoomService:
         ideal_answer = test_data.get("ideal_answer", None)
         if not ideal_answer:
             return
-        url = f"{cls.url}lib/tests"
+        url = f"{cls.url}/lib/tests"
         headers = {"Authorization": f"Token {api_token}"}
         behavior_name = test_data.get("behavior_name") or test_data.get(
             "behaviour_name"
@@ -192,7 +192,7 @@ class LamoomService:
 
     @classmethod
     def update_user_overview(cls, user_id: str, overview: str, api_token: str):
-        url = f"{cls.url}lib/files?updateOverview"
+        url = f"{cls.url}/lib/files?updateOverview"
         headers = {"Authorization": f"Token {api_token}"}
         data = {
             "user_id": user_id,
@@ -212,7 +212,7 @@ class LamoomService:
         user_id: str,
         api_token: str,
     ):
-        url = f"{cls.url}lib/files?getFileNames&prefix={prefix}&user_id={user_id}"
+        url = f"{cls.url}/lib/files?getFileNames&prefix={prefix}&user_id={user_id}"
         headers = {"Authorization": f"Token {api_token}"}
 
         logger.debug(f"Request to {url}")
@@ -232,7 +232,7 @@ class LamoomService:
         user_id: str,
         api_token: str,
     ):
-        url = f"{cls.url}lib/files?getFiles"
+        url = f"{cls.url}/lib/files?getFiles"
         headers = {"Authorization": f"Token {api_token}"}
         data = {"user_id": user_id, "paths": paths}
 
@@ -253,7 +253,7 @@ class LamoomService:
         user_id: str,
         api_token: str,
     ):
-        url = f"{cls.url}lib/files?saveFiles"
+        url = f"{cls.url}/lib/files?saveFiles"
         headers = {"Authorization": f"Token {api_token}"}
         data = {
             "user_id": user_id,
