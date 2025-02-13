@@ -20,10 +20,7 @@ def set_log_level():
 
 @pytest.fixture
 def lamoom():
-    return Lamoom(
-        openai_key="123",
-        azure_keys={"us-east-1": {"url": "https://us-east-1.api.azure.openai.org", "key": "123"}}
-    )
+    return Lamoom()
 
 @pytest.fixture
 def openai_gpt_4_behaviour():
@@ -81,8 +78,8 @@ def gpt_4_behaviour():
         ],
         fallback_attempt=AttemptToCall(
             ai_model=AzureAIModel(
-                realm="us-east-1",
-                deployment_id="gpt-4-32k",
+                realm="useast",
+                deployment_id="gpt-4o",
                 max_tokens=C_32K,
                 support_functions=True,
             ),
