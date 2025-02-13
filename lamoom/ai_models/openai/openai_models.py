@@ -85,6 +85,11 @@ OPEN_AI_PRICING = {
     },
 }
 
+BASE_URL_MAPPING = {
+    'gemini': "https://generativelanguage.googleapis.com/v1beta/openai/",
+    'nebius': 'https://api.studio.nebius.ai/v1/'
+}
+
 
 @dataclass(kw_only=True)
 class OpenAIModel(AIModel):
@@ -136,6 +141,9 @@ class OpenAIModel(AIModel):
             "model": self.model,
         }
 
+    def get_base_url(self) -> str | None:
+        return BASE_URL_MAPPING.get(self.provider, None)
+    
     def get_metrics_data(self):
         return {
             "model": self.model,
@@ -175,8 +183,9 @@ class OpenAIModel(AIModel):
 
     def get_client(self, client_secrets: dict = {}):
         return OpenAI(
-            organization=client_secrets.get("organization"),
+            organization=client_secrets.get("organization", None),
             api_key=client_secrets["api_key"],
+            base_url=self.get_base_url()
         )
 
     def call_chat_completion(

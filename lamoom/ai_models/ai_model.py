@@ -7,11 +7,13 @@ from _decimal import Decimal
 from lamoom.responses import AIResponse
 
 
+
 class AI_MODELS_PROVIDER(Enum):
     OPENAI = "openai"
     AZURE = "azure"
-    CLAUDE = ("claude",)
+    CLAUDE = "claude"
     GEMINI = "gemini"
+    NEBIUS = "nebius"
 
 
 @dataclass(kw_only=True)

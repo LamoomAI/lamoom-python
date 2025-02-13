@@ -5,7 +5,7 @@ from decimal import Decimal
 import requests
 import time
 from lamoom.settings import LAMOOM_API_URI
-from lamoom import Secrets, settings
+from lamoom import Secrets, settings, AzureAIModel, OpenAIModel, ClaudeAIModel, behaviour as behavior_module
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
@@ -110,6 +110,8 @@ class Lamoom:
         else:
             logger.error(response)
 
+    def get_model(self, prompt_id: str) -> dict:
+        pass
 
     def call(
         self,
@@ -132,6 +134,51 @@ class Lamoom:
         logger.debug(f"Calling {prompt_id}")
         start_time = current_timestamp_ms()
         prompt = self.get_prompt(prompt_id, version)
+        
+        
+        some_dict = self.get_model(prompt_id)
+        # DYNAMICALLY UPDATE KEYS
+        pass
+        # INITIALIZE BEHAVIOR
+        provider = some_dict['provider']
+        model_name = some_dict['model_name']
+        
+        if provider in [AI_MODELS_PROVIDER.OPENAI, AI_MODELS_PROVIDER.GEMINI, AI_MODELS_PROVIDER.NEBIUS]:
+            cur_behavior = behavior_module.AIModelsBehaviour(
+                attempts=[
+                        AttemptToCall(
+                        ai_model=OpenAIModel(
+                            model=model_name,
+                        ),
+                        weight=100,
+                    )
+                ]
+            )
+        elif provider == AI_MODELS_PROVIDER.CLAUDE:
+            cur_behavior = behavior_module.AIModelsBehaviour(
+                attempts=[
+                        AttemptToCall(
+                        ai_model=ClaudeAIModel(
+                            model=model_name,
+                        ),
+                        weight=100,
+                    )
+                ]
+            )
+            
+        else:
+            cur_behavior = behavior_module.AIModelsBehaviour(
+                attempts=[
+                        AttemptToCall(
+                        ai_model=AzureAIModel(
+                            realm=some_dict['realm'],
+                            deployment_id=model_name,
+                        ),
+                        weight=100,
+                    )
+                ]
+            )
+        
         prompt_attempts = PromptAttempts(behaviour, count_of_retries=count_of_retries)
 
         while prompt_attempts.initialize_attempt():
