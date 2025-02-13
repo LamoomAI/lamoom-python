@@ -1,4 +1,3 @@
-
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 
@@ -27,7 +26,6 @@ PRO = "gemini-1.5-pro"
 PRO_1_0 = "gemini-1.0-pro"
 
 
-
 class FamilyModel(Enum):
     flash = "Gemini 1.5 Flash"
     pro = "Gemini 1.5 Pro"
@@ -48,7 +46,7 @@ GEMINI_AI_PRICING = {
         C_1M: {
             "price_per_prompt_1k_tokens": Decimal(0.015),
             "price_per_sample_1k_tokens": Decimal(0.060),
-        }
+        },
     },
     FamilyModel.pro_1_0.value: {
         C_1M: {
@@ -64,7 +62,7 @@ GEMINI_AI_PRICING = {
         C_1M: {
             "price_per_prompt_1k_tokens": Decimal(0.007),
             "price_per_sample_1k_tokens": Decimal(0.021),
-        }
+        },
     },
 }
 
@@ -91,7 +89,13 @@ class GeminiAIModel(AIModel):
             )
             self.family = FamilyModel.flash.value
 
-    def call(self, messages: t.List[dict], max_tokens: int, client_secrets: dict = {}, **kwargs) -> AIResponse:
+    def call(
+        self,
+        messages: t.List[dict],
+        max_tokens: int,
+        client_secrets: dict = {},
+        **kwargs,
+    ) -> AIResponse:
         genai.configure(api_key=client_secrets["api_key"])
         self.gemini_model = genai.GenerativeModel(self.model)
         common_args = get_common_args(max_tokens)
@@ -115,12 +119,12 @@ class GeminiAIModel(AIModel):
         stream_params = kwargs.get("stream_params")
 
         # Parse only prompt content due to gemini call specifics
-        prompt = '\n\n'.join([obj["content"] for obj in messages])
+        prompt = "\n\n".join([obj["content"] for obj in messages])
 
         content = ""
 
         try:
-            if not kwargs.get('stream'):
+            if not kwargs.get("stream"):
                 response = self.gemini_model.generate_content(prompt, stream=False)
                 content = response.text
             else:
@@ -165,19 +169,34 @@ class GeminiAIModel(AIModel):
             "model": self.model,
             "max_tokens": self.max_tokens,
         }
-    
 
     def get_prompt_price(self, count_tokens: int) -> Decimal:
         for key in sorted(GEMINI_AI_PRICING[self.family].keys()):
             if count_tokens < key:
-                logger.info(f"Prompt price for {count_tokens} tokens is {GEMINI_AI_PRICING[self.family][key]['price_per_prompt_1k_tokens'] * Decimal(count_tokens) / 1000}")
-                return self._decimal(GEMINI_AI_PRICING[self.family][key]["price_per_prompt_1k_tokens"] * Decimal(count_tokens) / 1000)
-        
-        return self._decimal(self.price_per_prompt_1k_tokens * Decimal(count_tokens) / 1000)
-    
+                logger.info(
+                    f"Prompt price for {count_tokens} tokens is {GEMINI_AI_PRICING[self.family][key]['price_per_prompt_1k_tokens'] * Decimal(count_tokens) / 1000}"
+                )
+                return self._decimal(
+                    GEMINI_AI_PRICING[self.family][key]["price_per_prompt_1k_tokens"]
+                    * Decimal(count_tokens)
+                    / 1000
+                )
+
+        return self._decimal(
+            self.price_per_prompt_1k_tokens * Decimal(count_tokens) / 1000
+        )
+
     def get_sample_price(self, prompt_sample, count_tokens: int) -> Decimal:
         for key in sorted(GEMINI_AI_PRICING[self.family].keys()):
             if prompt_sample < key:
-                logger.info(f"Sample price for {count_tokens} tokens is {GEMINI_AI_PRICING[self.family][key]['price_per_prompt_1k_tokens'] * Decimal(count_tokens) / 1000}")
-                return self._decimal(GEMINI_AI_PRICING[self.family][key]["price_per_sample_1k_tokens"] * Decimal(count_tokens) / 1000)
-        return self._decimal(self.price_per_sample_1k_tokens * Decimal(count_tokens) / 1000)
+                logger.info(
+                    f"Sample price for {count_tokens} tokens is {GEMINI_AI_PRICING[self.family][key]['price_per_prompt_1k_tokens'] * Decimal(count_tokens) / 1000}"
+                )
+                return self._decimal(
+                    GEMINI_AI_PRICING[self.family][key]["price_per_sample_1k_tokens"]
+                    * Decimal(count_tokens)
+                    / 1000
+                )
+        return self._decimal(
+            self.price_per_sample_1k_tokens * Decimal(count_tokens) / 1000
+        )

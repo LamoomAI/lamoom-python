@@ -1,4 +1,3 @@
-
 from lamoom.responses import AIResponse
 from dataclasses import dataclass
 from openai.types.chat import ChatCompletionMessage as Message

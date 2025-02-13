@@ -160,7 +160,7 @@ class OpenAIModel(AIModel):
             FamilyModel.chat.value,
             FamilyModel.gpt4.value,
             FamilyModel.gpt4o.value,
-            FamilyModel.gpt4o_mini.value
+            FamilyModel.gpt4o_mini.value,
         ]:
             return self.call_chat_completion(
                 messages,

@@ -9,7 +9,6 @@ from enum import Enum
 import typing as t
 from dataclasses import dataclass
 
-print('testing')
 from lamoom.ai_models.claude.responses import ClaudeAIReponse
 from lamoom.ai_models.claude.constants import HAIKU, SONNET, OPUS
 from lamoom.ai_models.utils import get_common_args
@@ -20,7 +19,6 @@ from lamoom.exceptions import RetryableCustomError, ConnectionLostError
 import anthropic
 
 logger = logging.getLogger(__name__)
-
 
 
 class FamilyModel(Enum):
@@ -78,10 +76,8 @@ class ClaudeAIModel(AIModel):
 
         logger.debug(f"Initialized ClaudeAIModel: {self}")
 
-
     def get_client(self, client_secrets: dict) -> anthropic.Anthropic:
-        return anthropic.Anthropic(api_key=client_secrets.get('api_key'))
-
+        return anthropic.Anthropic(api_key=client_secrets.get("api_key"))
 
     def uny_all_messages_with_same_role(self, messages: t.List[dict]) -> t.List[dict]:
         result = []
@@ -96,8 +92,13 @@ class ClaudeAIModel(AIModel):
                 result[-1]["content"] += message.get("content")
         return result
 
-
-    def call(self, messages: t.List[dict], max_tokens: int, client_secrets: dict = {}, **kwargs) -> AIResponse:
+    def call(
+        self,
+        messages: t.List[dict],
+        max_tokens: int,
+        client_secrets: dict = {},
+        **kwargs,
+    ) -> AIResponse:
         common_args = get_common_args(max_tokens)
         kwargs = {
             **common_args,

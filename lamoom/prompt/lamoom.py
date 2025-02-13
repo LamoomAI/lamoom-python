@@ -9,10 +9,7 @@ from lamoom import Secrets, settings
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
-from lamoom.exceptions import (
-    LamoomPromptIsnotFoundError,
-    RetryableCustomError
-)
+from lamoom.exceptions import LamoomPromptIsnotFoundError, RetryableCustomError
 from lamoom.services.SaveWorker import SaveWorker
 from lamoom.prompt.prompt import Prompt
 from lamoom.prompt.user_prompt import UserPrompt
@@ -63,53 +60,49 @@ class Lamoom:
         self.service = LamoomService()
         if self.openai_key:
             self.clients[AI_MODELS_PROVIDER.OPENAI] = {
-                'organization': self.openai_org,
-                'api_key': self.openai_key,
+                "organization": self.openai_org,
+                "api_key": self.openai_key,
             }
         if self.azure_keys:
             if not self.clients.get(AI_MODELS_PROVIDER.AZURE):
                 self.clients[AI_MODELS_PROVIDER.AZURE] = {}
             for realm, key_data in self.azure_keys.items():
                 self.clients[AI_MODELS_PROVIDER.AZURE][realm] = {
-                    'api_version': key_data.get("api_version", "2023-07-01-preview"),
-                    'azure_endpoint': key_data["url"],
-                    'api_key': key_data["key"],
+                    "api_version": key_data.get("api_version", "2023-07-01-preview"),
+                    "azure_endpoint": key_data["url"],
+                    "api_key": key_data["key"],
                 }
                 logger.debug(f"Initialized Azure client for {realm} {key_data['url']}")
         if self.claude_key:
-            self.clients[AI_MODELS_PROVIDER.CLAUDE] = {'api_key': self.claude_key}
+            self.clients[AI_MODELS_PROVIDER.CLAUDE] = {"api_key": self.claude_key}
         if self.gemini_key:
-            self.clients[AI_MODELS_PROVIDER.GEMINI] = {'api_key': self.gemini_key}
+            self.clients[AI_MODELS_PROVIDER.GEMINI] = {"api_key": self.gemini_key}
         self.worker = SaveWorker()
 
-    
-    def create_test(self, 
-        prompt_id: str,
-        test_context: t.Dict[str, str],
-        ideal_answer: str = None
+    def create_test(
+        self, prompt_id: str, test_context: t.Dict[str, str], ideal_answer: str = None
     ):
-        '''
+        """
         Create new test
-        '''
-        
-        url = f'{LAMOOM_API_URI}lib/tests?createTest'
+        """
+
+        url = f"{LAMOOM_API_URI}lib/tests?createTest"
         headers = {"Authorization": f"Token {self.api_token}"}
-        if 'ideal_answer' in test_context:
-            ideal_answer = test_context['ideal_answer']
-            
+        if "ideal_answer" in test_context:
+            ideal_answer = test_context["ideal_answer"]
+
         data = {
-            'prompt_id': prompt_id,
-            'ideal_answer': ideal_answer,
-            'test_context': test_context
+            "prompt_id": prompt_id,
+            "ideal_answer": ideal_answer,
+            "test_context": test_context,
         }
         json_data = json.dumps(data)
         response = requests.post(url, headers=headers, data=json_data)
-        
+
         if response.status_code == 200:
             return response.json()
         else:
             logger.error(response)
-
 
     def call(
         self,
@@ -124,11 +117,10 @@ class Lamoom:
         check_connection: t.Callable = None,
         stream_params: dict = {},
     ) -> AIResponse:
-        
         """
         Call flow prompt with context and behaviour
         """
-        
+
         logger.debug(f"Calling {prompt_id}")
         start_time = current_timestamp_ms()
         prompt = self.get_prompt(prompt_id, version)
@@ -138,7 +130,7 @@ class Lamoom:
             current_attempt = prompt_attempts.current_attempt
             user_prompt = prompt.create_prompt(current_attempt)
             calling_messages = user_prompt.resolve(context)
-            
+
             """
             Create CI/CD when calling first time
             """
@@ -171,13 +163,13 @@ class Lamoom:
                 if settings.USE_API_SERVICE and self.api_token:
                     timestamp = int(time.time() * 1000)
                     result.id = f"{prompt_id}#{timestamp}"
-                    
+
                     self.worker.add_task(
                         self.api_token,
                         prompt.service_dump(),
                         context,
                         result,
-                        test_data
+                        test_data,
                     )
                 return result
             except RetryableCustomError as e:
@@ -230,18 +222,13 @@ class Lamoom:
         else:
             return settings.PIPE_PROMPTS[prompt_id]
 
-
-    def add_ideal_answer(
-        self,
-        response_id: str,
-        ideal_answer: str
-    ):
+    def add_ideal_answer(self, response_id: str, ideal_answer: str):
         response = LamoomService.update_response_ideal_answer(
             self.api_token, response_id, ideal_answer
         )
-        
+
         return response
-    
+
     def update_overview(self, overview: str, user_id: str = None):
         """Update user's overview
 
@@ -249,11 +236,11 @@ class Lamoom:
             user_id (str): user id,
             overview (str): new overview to replace the old one
         """
-        
+
         response = LamoomService.update_user_overview(user_id, overview, self.api_token)
-        
+
         return response
-    
+
     def get_file_names(self, prefix: str, user_id: str = None):
         """Fetch all filenames of the given user
 
@@ -265,7 +252,7 @@ class Lamoom:
             list: list of file names
         """
         response = LamoomService.get_file_names(prefix, user_id, self.api_token)
-        
+
         return response
 
     def get_files(self, paths: list[str], user_id: str = None):
@@ -274,26 +261,26 @@ class Lamoom:
         Args:
             paths (list[str]): paths to s3 bucket files
             user_id (str): user identifier
-        
-        Returns: 
-            dict: key = path, value: file content 
+
+        Returns:
+            dict: key = path, value: file content
         """
-        
+
         response = LamoomService.get_files(paths, user_id, self.api_token)
-        
+
         return response
-    
+
     def save_files(self, files: dict, user_id: str = None):
         """Method to save files into FPS S3 bucket
 
         Args:
             files (dict): dictionary where key = file_name (relative path), val = file_content
         """
-        
+
         response = LamoomService.save_files(files, user_id, self.api_token)
-        
+
         return response
-    
+
     def calculate_budget_for_text(self, user_prompt: UserPrompt, text: str) -> int:
         if not text:
             return 0
@@ -302,4 +289,6 @@ class Lamoom:
     def get_price(
         self, attempt: AttemptToCall, sample_budget: int, prompt_budget: int
     ) -> Decimal:
-        return attempt.ai_model.get_prompt_price(prompt_budget) + attempt.ai_model.get_sample_price(prompt_budget, sample_budget)
+        return attempt.ai_model.get_prompt_price(
+            prompt_budget
+        ) + attempt.ai_model.get_sample_price(prompt_budget, sample_budget)
