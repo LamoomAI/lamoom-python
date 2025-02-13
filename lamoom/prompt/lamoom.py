@@ -86,7 +86,7 @@ class Lamoom:
         Create new test
         """
 
-        url = f"{LAMOOM_API_URI}lib/tests?createTest"
+        url = f"{LAMOOM_API_URI}/lib/tests?createTest"
         headers = {"Authorization": f"Token {self.api_token}"}
         if "ideal_answer" in test_context:
             ideal_answer = test_context["ideal_answer"]
