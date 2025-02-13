@@ -1,7 +1,7 @@
 import pytest
-from flow_prompt.responses import AIResponse
-from flow_prompt.exceptions import NotParsedResponseException
-from flow_prompt.response_parsers.response_parser import get_yaml_from_response, get_json_from_response, _get_format_from_response, Tag
+from lamoom.responses import AIResponse
+from lamoom.exceptions import NotParsedResponseException
+from lamoom.response_parsers.response_parser import get_yaml_from_response, get_json_from_response, _get_format_from_response, Tag
 
 
 def test_get_yaml_from_response_valid_yaml():
