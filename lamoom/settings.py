@@ -27,7 +27,7 @@ SAFE_GAP_PER_MSG: int = os.environ.get("LAMOOM_SAFE_GAP_PER_MSG", 4)
 DEFAULT_ENCODING = "cl100k_base"
 
 USE_API_SERVICE = parse_bool(os.environ.get("LAMOOM_USE_API_SERVICE", True))
-LAMOOM_API_URI = os.environ.get("LAMOOM_API_URI", os.environ.get("FLOW_PROMPT_API_URI", "https://api.lamoom.com"))
+LAMOOM_API_URI = os.environ.get("LAMOOM_API_URI") or os.environ.get("FLOW_PROMPT_API_URI") or "https://api.lamoom.com"
 CACHE_PROMPT_FOR_EACH_SECONDS = int(
     os.environ.get("LAMOOM_CACHE_PROMPT_FOR_EACH_SECONDS", 5 * 60)
 )  # 5 minutes by default
