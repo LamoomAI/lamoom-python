@@ -6,7 +6,7 @@ import requests
 import time
 from lamoom.settings import LAMOOM_API_URI
 from lamoom import Secrets, settings
-from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
+from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
 from lamoom.exceptions import (
@@ -110,19 +110,18 @@ class Lamoom:
         else:
             logger.error(response)
 
-
-    def call(
-        self,
+    def get_result(
+        self, 
         prompt_id: str,
         context: t.Dict[str, str],
-        behaviour: AIModelsBehaviour,
-        params: t.Dict[str, t.Any] = {},
-        version: str = None,
-        count_of_retries: int = None,
-        test_data: dict = {},
-        stream_function: t.Callable = None,
-        check_connection: t.Callable = None,
-        stream_params: dict = {},
+        model: AIModel,
+        prompt: Prompt,
+        params: t.Dict[str, t.Any],
+        count_of_retries: int,
+        test_data: dict,
+        stream_function: t.Callable,
+        check_connection: t.Callable,
+        stream_params: dict,
     ) -> AIResponse:
         
         """
@@ -131,25 +130,19 @@ class Lamoom:
         
         logger.debug(f"Calling {prompt_id}")
         start_time = current_timestamp_ms()
-        prompt = self.get_prompt(prompt_id, version)
-        prompt_attempts = PromptAttempts(behaviour, count_of_retries=count_of_retries)
+        
+        user_prompt = prompt.create_prompt(model)
+        calling_messages = user_prompt.resolve(context)
 
-        while prompt_attempts.initialize_attempt():
-            current_attempt = prompt_attempts.current_attempt
-            user_prompt = prompt.create_prompt(current_attempt)
-            calling_messages = user_prompt.resolve(context)
-            
-            """
-            Create CI/CD when calling first time
-            """
+        for _ in range(0, count_of_retries):
             try:
-                result = current_attempt.ai_model.call(
+                result = model.call(
                     calling_messages.get_messages(),
                     calling_messages.max_sample_budget,
                     stream_function=stream_function,
                     check_connection=check_connection,
                     stream_params=stream_params,
-                    client_secrets=self.clients[current_attempt.ai_model.provider],
+                    client_secrets=self.clients[model.provider],
                     **params,
                 )
 
@@ -157,14 +150,14 @@ class Lamoom:
                     user_prompt, result.get_message_str()
                 )
                 result.metrics.price_of_call = self.get_price(
-                    current_attempt,
+                    model,
                     sample_budget,
                     calling_messages.prompt_budget,
                 )
                 result.metrics.sample_tokens_used = sample_budget
                 result.metrics.prompt_tokens_used = calling_messages.prompt_budget
                 result.metrics.ai_model_details = (
-                    current_attempt.ai_model.get_metrics_data()
+                    model.get_metrics_data()
                 )
                 result.metrics.latency = current_timestamp_ms() - start_time
 
@@ -172,6 +165,9 @@ class Lamoom:
                     timestamp = int(time.time() * 1000)
                     result.id = f"{prompt_id}#{timestamp}"
                     
+                    """
+                    Create CI/CD when calling first time
+                    """
                     self.worker.add_task(
                         self.api_token,
                         prompt.service_dump(),
@@ -182,13 +178,47 @@ class Lamoom:
                 return result
             except RetryableCustomError as e:
                 logger.error(
-                    f"Attempt failed: {prompt_attempts.current_attempt} with retryable error: {e}"
+                    f"Model {model.name} call failed with retryable error: {e}"
                 )
             except Exception as e:
                 logger.exception(
-                    f"Attempt failed: {prompt_attempts.current_attempt} with non-retryable error: {e}"
+                    f"Model {model.name} call failed with non-retryable error: {e}"
                 )
-                raise e
+                return None
+        
+
+    def call(
+        self,
+        prompt_id: str,
+        context: t.Dict[str, str],
+        attempt: AttemptToCall,
+        params: t.Dict[str, t.Any] = {},
+        version: str = None,
+        count_of_retries: int = 1,
+        test_data: dict = {},
+        stream_function: t.Callable = None,
+        check_connection: t.Callable = None,
+        stream_params: dict = {},
+    ) -> AIResponse:
+        
+        prompt = self.get_prompt(prompt_id, version)
+        
+        result = self.get_result(prompt_id, context, attempt.ai_model, prompt, params, 
+                                 count_of_retries, test_data, stream_function, check_connection, 
+                                 stream_params)
+        
+        if result is None:
+            if attempt.fallback_model is None:
+                raise Exception
+            
+            result = self.get_result(prompt_id, context, attempt.fallback_model, prompt, params, 
+                                 count_of_retries, test_data, stream_function, check_connection, 
+                                 stream_params)
+            if result is None:
+                raise Exception
+            
+        return result    
+
 
     def get_prompt(self, prompt_id: str, version: str = None) -> Prompt:
         """
@@ -300,6 +330,6 @@ class Lamoom:
         return len(user_prompt.encoding.encode(text))
 
     def get_price(
-        self, attempt: AttemptToCall, sample_budget: int, prompt_budget: int
+        self, ai_model: AIModel, sample_budget: int, prompt_budget: int
     ) -> Decimal:
-        return attempt.ai_model.get_prompt_price(prompt_budget) + attempt.ai_model.get_sample_price(prompt_budget, sample_budget)
+        return ai_model.get_prompt_price(prompt_budget) + ai_model.get_sample_price(prompt_budget, sample_budget)

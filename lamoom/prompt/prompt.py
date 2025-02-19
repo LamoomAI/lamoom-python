@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 
 from lamoom import settings
+from lamoom.ai_models.ai_model import AIModel
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.prompt.base_prompt import BasePrompt
 from lamoom.prompt.chat import ChatsEntity
@@ -41,16 +42,16 @@ class Prompt(BasePrompt):
             return min(self.max_tokens, ai_attempt.model_max_tokens())
         return ai_attempt.model_max_tokens()
 
-    def create_prompt(self, ai_attempt: AttemptToCall) -> UserPrompt:
+    def create_prompt(self, ai_model: AIModel) -> UserPrompt:
         logger.debug(
-            f"Creating prompt for {ai_attempt.ai_model} with {ai_attempt.attempt_number} attempt"
-            f"Encoding {ai_attempt.tiktoken_encoding()}"
+            f"Creating prompt for {ai_model}"
+            f"Encoding {ai_model.tiktoken_encoding}"
         )
         return UserPrompt(
             pipe=deepcopy(self.pipe),
             priorities=deepcopy(self.priorities),
-            tiktoken_encoding=ai_attempt.tiktoken_encoding(),
-            model_max_tokens=self.get_max_tokens(ai_attempt),
+            tiktoken_encoding=ai_model.tiktoken_encoding,
+            model_max_tokens=ai_model.max_tokens,
             min_sample_tokens=self.min_sample_tokens,
             reserved_tokens_budget_for_sampling=self.reserved_tokens_budget_for_sampling,
         )

@@ -7,6 +7,7 @@ from lamoom.ai_models.ai_model import AIModel
 @dataclass
 class AttemptToCall:
     ai_model: AIModel
+    fallback_model: AIModel = None
     weight: int = 1  # from 1 to 100, the higher weight the more often it will be called
     # if you wish to limit functions that can be used, or to turn off calling openai functions for this attempt:
     # [] - if empty list of functions, functions are not supported for that call
@@ -14,7 +15,7 @@ class AttemptToCall:
     # ['function1', 'function2'] - if list of functions, only those functions will be called
     functions: t.List[str] = None
     attempt_number: int = 1
-
+    
     def __post_init__(self):
         self.id = (
             f"{self.ai_model.name}"
