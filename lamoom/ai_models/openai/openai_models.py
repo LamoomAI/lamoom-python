@@ -142,7 +142,7 @@ class OpenAIModel(AIModel):
         }
 
     def get_base_url(self) -> str | None:
-        return BASE_URL_MAPPING.get(self.provider, None)
+        return BASE_URL_MAPPING.get(self.provider.value, None)
     
     def get_metrics_data(self):
         return {

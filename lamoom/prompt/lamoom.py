@@ -5,7 +5,7 @@ from decimal import Decimal
 import requests
 import time
 from lamoom.settings import LAMOOM_API_URI
-from lamoom import Secrets, settings, AzureAIModel, OpenAIModel, ClaudeAIModel, behaviour as behavior_module
+from lamoom import Secrets, settings    
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
@@ -109,18 +109,80 @@ class Lamoom:
             return response.json()
         else:
             logger.error(response)
+            
+    def init_attempt(self, model_info: dict) -> AttemptToCall:
+        
+        from lamoom import AzureAIModel, OpenAIModel, ClaudeAIModel, C_128K
+        
+        provider = model_info['provider']
+        model_name = model_info['model_name']
+                
+        if provider in [AI_MODELS_PROVIDER.OPENAI.value, 
+                        AI_MODELS_PROVIDER.GEMINI.value, 
+                        AI_MODELS_PROVIDER.NEBIUS.value]:
+            return AttemptToCall(
+                    ai_model=OpenAIModel(
+                        provider=AI_MODELS_PROVIDER(provider),
+                        model=model_name,
+                        max_tokens=C_128K
+                    ),
+                    weight=100,
+                )   
+        elif provider == AI_MODELS_PROVIDER.CLAUDE.value:
+            return AttemptToCall(
+                    ai_model=ClaudeAIModel(
+                        model=model_name,
+                        max_tokens=4096
+                    ),
+                    weight=100,
+                )
+        else:
+            return AttemptToCall(
+                    ai_model=AzureAIModel(
+                        realm=model_info['realm'],
+                        deployment_id=model_name,
+                        max_tokens=C_128K
+                    ),
+                    weight=100,
+                )
+    
+    def extract_provider_name(self, model: str) -> dict:
+        model_provider = model.split("/")[0].lower()
+        model_name = model.split("/")[1]
+        realm = None
+        if "azure" in model_provider:
+            model_name, realm = model_provider.split(".")
+        
+        return {
+            'provider': model_provider,
+            'model_name': model_name,
+            'realm': realm
+        }
 
-    def get_model(self, prompt_id: str) -> dict:
-        pass
-
+    def init_behavior(self, model: str) -> AIModelsBehaviour:
+        main_model_info = self.extract_provider_name(model)
+        
+        main_attempt = self.init_attempt(main_model_info)
+        
+        fallback_attempts = []
+        for model in settings.FALLBACK_MODELS:
+            model_info = self.extract_provider_name(model)
+            fallback_attempts.append(self.init_attempt(model_info))
+        
+        return AIModelsBehaviour(
+            attempt=main_attempt,
+            fallback_attempts=fallback_attempts
+        )
+        
+        
     def call(
         self,
         prompt_id: str,
         context: t.Dict[str, str],
-        behaviour: AIModelsBehaviour,
+        model: str,
         params: t.Dict[str, t.Any] = {},
         version: str = None,
-        count_of_retries: int = None,
+        count_of_retries: int = 5,
         test_data: dict = {},
         stream_function: t.Callable = None,
         check_connection: t.Callable = None,
@@ -135,107 +197,69 @@ class Lamoom:
         start_time = current_timestamp_ms()
         prompt = self.get_prompt(prompt_id, version)
         
+        behaviour = self.init_behavior(model)
         
-        some_dict = self.get_model(prompt_id)
-        # DYNAMICALLY UPDATE KEYS
-        pass
-        # INITIALIZE BEHAVIOR
-        provider = some_dict['provider']
-        model_name = some_dict['model_name']
+        logger.info(behaviour)
         
-        if provider in [AI_MODELS_PROVIDER.OPENAI, AI_MODELS_PROVIDER.GEMINI, AI_MODELS_PROVIDER.NEBIUS]:
-            cur_behavior = behavior_module.AIModelsBehaviour(
-                attempts=[
-                        AttemptToCall(
-                        ai_model=OpenAIModel(
-                            model=model_name,
-                        ),
-                        weight=100,
-                    )
-                ]
-            )
-        elif provider == AI_MODELS_PROVIDER.CLAUDE:
-            cur_behavior = behavior_module.AIModelsBehaviour(
-                attempts=[
-                        AttemptToCall(
-                        ai_model=ClaudeAIModel(
-                            model=model_name,
-                        ),
-                        weight=100,
-                    )
-                ]
-            )
-            
-        else:
-            cur_behavior = behavior_module.AIModelsBehaviour(
-                attempts=[
-                        AttemptToCall(
-                        ai_model=AzureAIModel(
-                            realm=some_dict['realm'],
-                            deployment_id=model_name,
-                        ),
-                        weight=100,
-                    )
-                ]
-            )
-        
-        prompt_attempts = PromptAttempts(behaviour, count_of_retries=count_of_retries)
+        prompt_attempts = PromptAttempts(behaviour)
 
         while prompt_attempts.initialize_attempt():
             current_attempt = prompt_attempts.current_attempt
             user_prompt = prompt.create_prompt(current_attempt)
             calling_messages = user_prompt.resolve(context)
             
-            """
-            Create CI/CD when calling first time
-            """
-            try:
-                result = current_attempt.ai_model.call(
-                    calling_messages.get_messages(),
-                    calling_messages.max_sample_budget,
-                    stream_function=stream_function,
-                    check_connection=check_connection,
-                    stream_params=stream_params,
-                    client_secrets=self.clients[current_attempt.ai_model.provider],
-                    **params,
-                )
-
-                sample_budget = self.calculate_budget_for_text(
-                    user_prompt, result.get_message_str()
-                )
-                result.metrics.price_of_call = self.get_price(
-                    current_attempt,
-                    sample_budget,
-                    calling_messages.prompt_budget,
-                )
-                result.metrics.sample_tokens_used = sample_budget
-                result.metrics.prompt_tokens_used = calling_messages.prompt_budget
-                result.metrics.ai_model_details = (
-                    current_attempt.ai_model.get_metrics_data()
-                )
-                result.metrics.latency = current_timestamp_ms() - start_time
-
-                if settings.USE_API_SERVICE and self.api_token:
-                    timestamp = int(time.time() * 1000)
-                    result.id = f"{prompt_id}#{timestamp}"
-                    
-                    self.worker.add_task(
-                        self.api_token,
-                        prompt.service_dump(),
-                        context,
-                        result,
-                        test_data
+            for _ in range(0, count_of_retries):
+                try:
+                    result = current_attempt.ai_model.call(
+                        calling_messages.get_messages(),
+                        calling_messages.max_sample_budget,
+                        stream_function=stream_function,
+                        check_connection=check_connection,
+                        stream_params=stream_params,
+                        client_secrets=self.clients[current_attempt.ai_model.provider],
+                        **params,
                     )
-                return result
-            except RetryableCustomError as e:
-                logger.error(
-                    f"Attempt failed: {prompt_attempts.current_attempt} with retryable error: {e}"
-                )
-            except Exception as e:
-                logger.exception(
-                    f"Attempt failed: {prompt_attempts.current_attempt} with non-retryable error: {e}"
-                )
-                raise e
+
+                    sample_budget = self.calculate_budget_for_text(
+                        user_prompt, result.get_message_str()
+                    )
+                    result.metrics.price_of_call = self.get_price(
+                        current_attempt,
+                        sample_budget,
+                        calling_messages.prompt_budget,
+                    )
+                    result.metrics.sample_tokens_used = sample_budget
+                    result.metrics.prompt_tokens_used = calling_messages.prompt_budget
+                    result.metrics.ai_model_details = (
+                        current_attempt.ai_model.get_metrics_data()
+                    )
+                    result.metrics.latency = current_timestamp_ms() - start_time
+
+                    if settings.USE_API_SERVICE and self.api_token:
+                        timestamp = int(time.time() * 1000)
+                        result.id = f"{prompt_id}#{timestamp}"
+                        
+                        self.worker.add_task(
+                            self.api_token,
+                            prompt.service_dump(),
+                            context,
+                            result,
+                            test_data
+                        )
+                    return result
+                except RetryableCustomError as e:
+                    logger.error(
+                        f"Attempt failed: {prompt_attempts.current_attempt} with retryable error: {e}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Attempt failed: {prompt_attempts.current_attempt} with non-retryable error: {e}"
+                    )
+                    
+        logger.exception(
+            "Prompt call failed, no attempts worked"
+        )
+        raise Exception
 
     def get_prompt(self, prompt_id: str, version: str = None) -> Prompt:
         """

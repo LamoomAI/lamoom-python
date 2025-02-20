@@ -10,7 +10,7 @@ from lamoom.ai_models.openai.openai_models import (
 )
 
 OPENAI_GPT4_0125_PREVIEW_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-4-0125-preview",
@@ -18,12 +18,12 @@ OPENAI_GPT4_0125_PREVIEW_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
+    
 )
 
 OPENAI_GPT4_1106_PREVIEW_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-4-1106-preview",
@@ -31,12 +31,12 @@ OPENAI_GPT4_1106_PREVIEW_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
+    
 )
 
 OPENAI_GPT4_1106_VISION_PREVIEW_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-4-1106-vision-preview",
@@ -44,12 +44,12 @@ OPENAI_GPT4_1106_VISION_PREVIEW_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
+    
 )
 
 OPENAI_GPT4_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-4",
@@ -57,12 +57,11 @@ OPENAI_GPT4_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
 )
 
 OPENAI_GPT4_32K_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-4-32k",
@@ -70,12 +69,11 @@ OPENAI_GPT4_32K_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
 )
 
 OPENAI_GPT3_5_TURBO_0125_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-3.5-turbo-0125",
@@ -83,12 +81,12 @@ OPENAI_GPT3_5_TURBO_0125_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
+
 )
 
 OPENAI_GPT4O_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-4o",
@@ -96,13 +94,12 @@ OPENAI_GPT4O_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
 )
 
 
 OPENAI_GPT4O_MINI_BEHAVIOUR = AIModelsBehaviour(
-    attempts=[
+    attempt=
         AttemptToCall(
             ai_model=OpenAIModel(
                 model="gpt-4o-mini",
@@ -110,7 +107,6 @@ OPENAI_GPT4O_MINI_BEHAVIOUR = AIModelsBehaviour(
                 support_functions=True,
             ),
             weight=100,
-        ),
-    ]
+        )
 )
 

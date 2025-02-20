@@ -38,6 +38,7 @@ RECEIVE_PROMPT_FROM_SERVER = parse_bool(
     os.environ.get("LAMOOM_RECEIVE_PROMPT_FROM_SERVER", True)
 )
 PIPE_PROMPTS = {}
+FALLBACK_MODELS = ["Claude/claude-3-5-haiku-latest"]
 
 
 @dataclass
