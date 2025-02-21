@@ -94,6 +94,7 @@ BASE_URL_MAPPING = {
 @dataclass(kw_only=True)
 class OpenAIModel(AIModel):
     model: t.Optional[str]
+    max_tokens: int = C_128K
     support_functions: bool = False
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.OPENAI
     family: str = None

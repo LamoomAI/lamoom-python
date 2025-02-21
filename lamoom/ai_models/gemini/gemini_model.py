@@ -2,7 +2,7 @@
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 
-from lamoom.ai_models.constants import C_1M, C_128K
+from lamoom.ai_models.constants import C_1M, C_128K, C_8K
 from lamoom.responses import AIResponse
 from decimal import Decimal
 from enum import Enum
@@ -72,7 +72,7 @@ GEMINI_AI_PRICING = {
 @dataclass(kw_only=True)
 class GeminiAIModel(AIModel):
     model: str
-    max_tokens: int = C_1M
+    max_tokens: int = C_8K
     gemini_model: genai.GenerativeModel = None
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.GEMINI
     family: str = None
@@ -94,6 +94,7 @@ class GeminiAIModel(AIModel):
     def call(self, messages: t.List[dict], max_tokens: int, client_secrets: dict = {}, **kwargs) -> AIResponse:
         genai.configure(api_key=client_secrets["api_key"])
         self.gemini_model = genai.GenerativeModel(self.model)
+        max_tokens = min(max_tokens, self.max_tokens)
         common_args = get_common_args(max_tokens)
         kwargs = {
             **{

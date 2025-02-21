@@ -1,7 +1,7 @@
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 
-from lamoom.ai_models.constants import C_200K
+from lamoom.ai_models.constants import C_200K, C_8K
 from lamoom.responses import AIResponse
 from decimal import Decimal
 from enum import Enum
@@ -9,7 +9,6 @@ from enum import Enum
 import typing as t
 from dataclasses import dataclass
 
-print('testing')
 from lamoom.ai_models.claude.responses import ClaudeAIReponse
 from lamoom.ai_models.claude.constants import HAIKU, SONNET, OPUS
 from lamoom.ai_models.utils import get_common_args
@@ -59,6 +58,7 @@ CLAUDE_AI_PRICING = {
 @dataclass(kw_only=True)
 class ClaudeAIModel(AIModel):
     model: str
+    max_tokens: int = C_8K
     api_key: str = None
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.CLAUDE
     family: str = None
@@ -98,6 +98,8 @@ class ClaudeAIModel(AIModel):
 
 
     def call(self, messages: t.List[dict], max_tokens: int, client_secrets: dict = {}, **kwargs) -> AIResponse:
+        max_tokens = min(max_tokens, self.max_tokens)
+        
         common_args = get_common_args(max_tokens)
         kwargs = {
             **common_args,

@@ -18,7 +18,6 @@ class AI_MODELS_PROVIDER(Enum):
 
 @dataclass(kw_only=True)
 class AIModel:
-    max_tokens: int
     tiktoken_encoding: t.Optional[str] = "cl100k_base"
     provider: AI_MODELS_PROVIDER = None
     support_functions: bool = False
