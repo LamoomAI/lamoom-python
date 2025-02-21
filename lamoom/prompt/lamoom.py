@@ -63,48 +63,45 @@ class Lamoom:
         self.service = LamoomService()
         if self.openai_key:
             self.clients[AI_MODELS_PROVIDER.OPENAI] = {
-                'organization': self.openai_org,
-                'api_key': self.openai_key,
+                "organization": self.openai_org,
+                "api_key": self.openai_key,
             }
         if self.azure_keys:
             if not self.clients.get(AI_MODELS_PROVIDER.AZURE):
                 self.clients[AI_MODELS_PROVIDER.AZURE] = {}
             for realm, key_data in self.azure_keys.items():
                 self.clients[AI_MODELS_PROVIDER.AZURE][realm] = {
-                    'api_version': key_data.get("api_version", "2023-07-01-preview"),
-                    'azure_endpoint': key_data["url"],
-                    'api_key': key_data["key"],
+                    "api_version": key_data.get("api_version", "2023-07-01-preview"),
+                    "azure_endpoint": key_data["url"],
+                    "api_key": key_data["key"],
                 }
                 logger.debug(f"Initialized Azure client for {realm} {key_data['url']}")
         if self.claude_key:
-            self.clients[AI_MODELS_PROVIDER.CLAUDE] = {'api_key': self.claude_key}
+            self.clients[AI_MODELS_PROVIDER.CLAUDE] = {"api_key": self.claude_key}
         if self.gemini_key:
-            self.clients[AI_MODELS_PROVIDER.GEMINI] = {'api_key': self.gemini_key}
+            self.clients[AI_MODELS_PROVIDER.GEMINI] = {"api_key": self.gemini_key}
         self.worker = SaveWorker()
 
-    
-    def create_test(self, 
-        prompt_id: str,
-        test_context: t.Dict[str, str],
-        ideal_answer: str = None
+    def create_test(
+        self, prompt_id: str, test_context: t.Dict[str, str], ideal_answer: str = None
     ):
-        '''
+        """
         Create new test
-        '''
-        
-        url = f'{LAMOOM_API_URI}lib/tests?createTest'
+        """
+
+        url = f"{LAMOOM_API_URI}/lib/tests?createTest"
         headers = {"Authorization": f"Token {self.api_token}"}
-        if 'ideal_answer' in test_context:
-            ideal_answer = test_context['ideal_answer']
-            
+        if "ideal_answer" in test_context:
+            ideal_answer = test_context["ideal_answer"]
+
         data = {
-            'prompt_id': prompt_id,
-            'ideal_answer': ideal_answer,
-            'test_context': test_context
+            "prompt_id": prompt_id,
+            "ideal_answer": ideal_answer,
+            "test_context": test_context,
         }
         json_data = json.dumps(data)
         response = requests.post(url, headers=headers, data=json_data)
-        
+
         if response.status_code == 200:
             return response.json()
         else:
@@ -188,11 +185,10 @@ class Lamoom:
         check_connection: t.Callable = None,
         stream_params: dict = {},
     ) -> AIResponse:
-        
         """
         Call flow prompt with context and behaviour
         """
-        
+
         logger.debug(f"Calling {prompt_id}")
         start_time = current_timestamp_ms()
         prompt = self.get_prompt(prompt_id, version)
@@ -373,4 +369,6 @@ class Lamoom:
     def get_price(
         self, attempt: AttemptToCall, sample_budget: int, prompt_budget: int
     ) -> Decimal:
-        return attempt.ai_model.get_prompt_price(prompt_budget) + attempt.ai_model.get_sample_price(prompt_budget, sample_budget)
+        return attempt.ai_model.get_prompt_price(
+            prompt_budget
+        ) + attempt.ai_model.get_sample_price(prompt_budget, sample_budget)

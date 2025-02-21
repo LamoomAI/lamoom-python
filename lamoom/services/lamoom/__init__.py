@@ -62,7 +62,7 @@ class LamoomService:
                     is_taken_globally=cached_prompt_taken_globally,
                 )
 
-        url = f"{self.url}lib/prompts"
+        url = f"{self.url}/lib/prompts"
         headers = {
             "Authorization": f"Token {api_token}",
         }
@@ -124,7 +124,7 @@ class LamoomService:
         context: t.Dict[str, t.Any],
         response: AIResponse,
     ):
-        url = f"{cls.url}lib/logs"
+        url = f"{cls.url}/lib/logs"
         headers = {"Authorization": f"Token {api_token}"}
         data = {
             "context": context,
@@ -132,9 +132,9 @@ class LamoomService:
             "response": {"content": response.content},
             "metrics": asdict(response.metrics),
             "request": asdict(response.prompt),
-            'timestamp': response.id.split('#')[1]
+            "timestamp": response.id.split("#")[1],
         }
-        
+
         logger.debug(f"Request to {url} with data: {data}")
         json_data = json.dumps(data, cls=DecimalEncoder)
 
@@ -143,26 +143,20 @@ class LamoomService:
             return response.json()
         else:
             logger.error(response)
-          
-    @classmethod  
+
+    @classmethod
     def update_response_ideal_answer(
-        cls,
-        api_token: str,
-        log_id: str,
-        ideal_answer: str
+        cls, api_token: str, log_id: str, ideal_answer: str
     ):
-        url = f"{cls.url}lib/logs"
+        url = f"{cls.url}/lib/logs"
         headers = {"Authorization": f"Token {api_token}"}
-        data = {
-            "log_id": log_id,
-            "ideal_answer": ideal_answer
-        }
-        
+        data = {"log_id": log_id, "ideal_answer": ideal_answer}
+
         logger.debug(f"Request to {url} with data: {data}")
         json_data = json.dumps(data, cls=DecimalEncoder)
 
         response = requests.put(url, headers=headers, data=json_data)
-        
+
         if response.status_code == 200:
             return response.json()
         else:
@@ -177,17 +171,19 @@ class LamoomService:
         context: t.Dict[str, t.Any],
         test_data: dict,
     ):
-        ideal_answer = test_data.get('ideal_answer', None)
+        ideal_answer = test_data.get("ideal_answer", None)
         if not ideal_answer:
             return
-        url = f"{cls.url}lib/tests"
+        url = f"{cls.url}/lib/tests"
         headers = {"Authorization": f"Token {api_token}"}
-        behavior_name = test_data.get('behavior_name') or test_data.get('behaviour_name')
+        behavior_name = test_data.get("behavior_name") or test_data.get(
+            "behaviour_name"
+        )
         data = {
             "context": context,
             "prompt": prompt_data,
             "ideal_answer": ideal_answer,
-            "behavior_name": behavior_name
+            "behavior_name": behavior_name,
         }
         logger.debug(f"Request to {url} with data: {data}")
         json_data = json.dumps(data)
@@ -195,33 +191,28 @@ class LamoomService:
         logger.info(f"Created Ci/CD for prompt {prompt_data['prompt_id']}")
 
     @classmethod
-    def update_user_overview(
-        cls,
-        user_id: str,
-        overview: str,
-        api_token: str
-    ):
-        url = f"{cls.url}lib/files?updateOverview"
+    def update_user_overview(cls, user_id: str, overview: str, api_token: str):
+        url = f"{cls.url}/lib/files?updateOverview"
         headers = {"Authorization": f"Token {api_token}"}
         data = {
-            'user_id': user_id,
+            "user_id": user_id,
             "overview": overview,
         }
         json_data = json.dumps(data)
         logger.debug(f"Request to {url} with data: {data}")
         response = requests.post(url, headers=headers, data=json_data)
         logger.info(f"Update overview of the user: ${user_id}")
-        
+
         return response
-    
+
     @classmethod
     def get_file_names(
-        cls, 
+        cls,
         prefix: str,
         user_id: str,
         api_token: str,
     ):
-        url = f"{cls.url}lib/files?getFileNames&prefix={prefix}&user_id={user_id}"
+        url = f"{cls.url}/lib/files?getFileNames&prefix={prefix}&user_id={user_id}"
         headers = {"Authorization": f"Token {api_token}"}
 
         logger.debug(f"Request to {url}")
@@ -233,7 +224,7 @@ class LamoomService:
         else:
             logger.error(response)
             return response
-        
+
     @classmethod
     def get_files(
         cls,
@@ -241,13 +232,10 @@ class LamoomService:
         user_id: str,
         api_token: str,
     ):
-        url = f"{cls.url}lib/files?getFiles"
+        url = f"{cls.url}/lib/files?getFiles"
         headers = {"Authorization": f"Token {api_token}"}
-        data = {
-            'user_id': user_id,
-            'paths': paths
-        }
-        
+        data = {"user_id": user_id, "paths": paths}
+
         json_data = json.dumps(data)
         response = requests.post(url=url, headers=headers, data=json_data)
 
@@ -257,21 +245,21 @@ class LamoomService:
         else:
             logger.error(response)
             return response
-    
+
     @classmethod
     def save_files(
-        cls, 
+        cls,
         files: dict,
         user_id: str,
         api_token: str,
     ):
-        url = f"{cls.url}lib/files?saveFiles"
+        url = f"{cls.url}/lib/files?saveFiles"
         headers = {"Authorization": f"Token {api_token}"}
         data = {
-            'user_id': user_id,
-            'files': files,
+            "user_id": user_id,
+            "files": files,
         }
-        
+
         json_data = json.dumps(data)
         response = requests.post(url=url, headers=headers, data=json_data)
 

@@ -81,8 +81,8 @@ def gpt_4_behaviour():
         ],
         fallback_attempt=AttemptToCall(
             ai_model=AzureAIModel(
-                realm="us-east-1",
-                deployment_id="gpt-4-32k",
+                realm="useast",
+                deployment_id="gpt-4o",
                 max_tokens=C_32K,
                 support_functions=True,
             ),

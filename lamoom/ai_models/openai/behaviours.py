@@ -1,4 +1,3 @@
-
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.ai_models.behaviour import AIModelsBehaviour
 from lamoom.ai_models.openai.openai_models import (
@@ -109,4 +108,3 @@ OPENAI_GPT4O_MINI_BEHAVIOUR = AIModelsBehaviour(
             weight=100,
         )
 )
-

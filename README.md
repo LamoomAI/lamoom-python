@@ -35,8 +35,8 @@ Add Azure keys to accommodate multiple realms:
 ```python
 # setting as os.env
 os.setenv('AZURE_KEYS', '{"name_realm":{"url": "https://baseurl.azure.com/","key": "secret"}}')
-# or creating lamoom obj
-client = Lamoom(azure_keys={"realm_name":{"url": "https://baseurl.azure.com/", "key": "your_secret"}})
+# or creating flow_prompt obj
+FlowPrompt(azure_keys={"realm_name":{"url": "https://baseurl.azure.com/", "key": "your_secret"}})
 ```
 
 ### Model Agnostic:

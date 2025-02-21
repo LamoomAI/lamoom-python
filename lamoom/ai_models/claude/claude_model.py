@@ -21,7 +21,6 @@ import anthropic
 logger = logging.getLogger(__name__)
 
 
-
 class FamilyModel(Enum):
     haiku = "Claude 3 Haiku"
     sonnet = "Claude 3 Sonnet"
@@ -78,10 +77,8 @@ class ClaudeAIModel(AIModel):
 
         logger.debug(f"Initialized ClaudeAIModel: {self}")
 
-
     def get_client(self, client_secrets: dict) -> anthropic.Anthropic:
-        return anthropic.Anthropic(api_key=client_secrets.get('api_key'))
-
+        return anthropic.Anthropic(api_key=client_secrets.get("api_key"))
 
     def uny_all_messages_with_same_role(self, messages: t.List[dict]) -> t.List[dict]:
         result = []
