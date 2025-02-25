@@ -9,6 +9,11 @@ from lamoom import Secrets, settings
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
 from lamoom.ai_models.attempt_to_call import AttemptToCall
 from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
+from lamoom.ai_models.openai.azure_models import AzureAIModel
+from lamoom.ai_models.claude.claude_model import ClaudeAIModel
+from lamoom.ai_models.openai.openai_models import OpenAIModel
+from lamoom.ai_models.constants import C_16K
+
 from lamoom.exceptions import (
     LamoomPromptIsnotFoundError,
     RetryableCustomError
@@ -108,9 +113,6 @@ class Lamoom:
             logger.error(response)
             
     def init_attempt(self, model_info: dict) -> AttemptToCall:
-        
-        from lamoom import AzureAIModel, OpenAIModel, ClaudeAIModel, C_128K
-        
         provider = model_info['provider']
         model_name = model_info['model_name']
                 
@@ -121,7 +123,6 @@ class Lamoom:
                     ai_model=OpenAIModel(
                         provider=AI_MODELS_PROVIDER(provider),
                         model=model_name,
-                        max_tokens=C_128K
                     ),
                     weight=100,
                 )   
@@ -129,7 +130,6 @@ class Lamoom:
             return AttemptToCall(
                     ai_model=ClaudeAIModel(
                         model=model_name,
-                        max_tokens=4096
                     ),
                     weight=100,
                 )
@@ -138,7 +138,6 @@ class Lamoom:
                     ai_model=AzureAIModel(
                         realm=model_info['realm'],
                         deployment_id=model_name,
-                        max_tokens=C_128K
                     ),
                     weight=100,
                 )
@@ -148,7 +147,7 @@ class Lamoom:
         model_name = model.split("/")[1]
         realm = None
         if "azure" in model_provider:
-            model_name, realm = model_provider.split(".")
+            model_provider, realm = model_provider.split(".")
         
         return {
             'provider': model_provider,

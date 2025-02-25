@@ -66,13 +66,13 @@ OPEN_AI_PRICING = {
         },
     },
     FamilyModel.gpt4o.value: {
-        C_128K: {
+        C_16K: {
             "price_per_prompt_1k_tokens": Decimal(0.005),
             "price_per_sample_1k_tokens": Decimal(0.015),
         },
     },
     FamilyModel.gpt4o_mini.value: {
-        C_128K: {
+        C_16K: {
             "price_per_prompt_1k_tokens": Decimal(0.00015),
             "price_per_sample_1k_tokens": Decimal(0.0006),
         },
@@ -94,7 +94,7 @@ BASE_URL_MAPPING = {
 @dataclass(kw_only=True)
 class OpenAIModel(AIModel):
     model: t.Optional[str]
-    max_tokens: int = C_128K
+    max_tokens: int = C_16K
     support_functions: bool = False
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.OPENAI
     family: str = None

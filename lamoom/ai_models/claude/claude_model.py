@@ -1,7 +1,7 @@
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 
-from lamoom.ai_models.constants import C_200K, C_8K
+from lamoom.ai_models.constants import C_200K, C_4K
 from lamoom.responses import AIResponse
 from decimal import Decimal
 from enum import Enum
@@ -57,7 +57,7 @@ CLAUDE_AI_PRICING = {
 @dataclass(kw_only=True)
 class ClaudeAIModel(AIModel):
     model: str
-    max_tokens: int = C_8K
+    max_tokens: int = C_4K
     api_key: str = None
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.CLAUDE
     family: str = None

@@ -3,7 +3,7 @@ import logging
 import time
 
 from pytest import fixture
-from lamoom import Lamoom, behaviour, Prompt, AttemptToCall, AzureAIModel, ClaudeAIModel, GeminiAIModel, OpenAIModel, C_128K
+from lamoom import Lamoom, Prompt
 logger = logging.getLogger(__name__)
 
 
@@ -12,59 +12,13 @@ def client():
     lamoom = Lamoom()
     return lamoom
 
-
-@fixture
-def openai_behaviour():
-    return behaviour.AIModelsBehaviour(
-        attempts=[
-            AttemptToCall(
-                ai_model=AzureAIModel(
-                    realm='useast',
-                    deployment_id="gpt-4o",
-                    max_tokens=C_128K,
-                    support_functions=True,
-                ),
-                weight=100,
-            )
-        ]
-    )
-   
-@fixture
-def claude_behaviour():
-    return behaviour.AIModelsBehaviour(
-        attempts=[
-            AttemptToCall(
-                ai_model=ClaudeAIModel(
-                    model="claude-3-haiku-20240307",
-                    max_tokens=4096                
-                ),
-                weight=100,
-            ),
-        ]
-    )
-    
-
-@fixture
-def gemini_behaviour():
-    return behaviour.AIModelsBehaviour(
-        attempts=[
-            AttemptToCall(
-                ai_model=GeminiAIModel(
-                    model="gemini-1.5-flash",
-                    max_tokens=C_128K                
-                ),
-                weight=100,
-            ),
-        ]
-    )
-
 def stream_function(text, **kwargs):
     print(text)
 
 def stream_check_connection(validate, **kwargs):
     return validate
 
-def test_loading_prompt_from_service(client, openai_behaviour, claude_behaviour, gemini_behaviour):
+def test_loading_prompt_from_service(client):
 
     context = {
         'messages': ['test1', 'test2'],
@@ -82,7 +36,7 @@ def test_loading_prompt_from_service(client, openai_behaviour, claude_behaviour,
     prompt.add("{text}")
     prompt.add("It's a system message, Hello {name}", role="assistant")
     
-    client.call(prompt.id, context, openai_behaviour, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
-    client.call(prompt.id, context, claude_behaviour, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
-    client.call(prompt.id, context, gemini_behaviour, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    client.call(prompt.id, context, "azure.useast/gpt-4o", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    client.call(prompt.id, context, "claude/claude-3-haiku-20240307", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    client.call(prompt.id, context, "gemini/gemini-1.5-flash", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     

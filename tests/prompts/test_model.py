@@ -26,6 +26,6 @@ def test_model(client):
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
 
-    result = client.call(prompt.id, context, "Gemini/gemini-1.5-flash")
+    result = client.call(prompt.id, context, "gemini/gemini-1.5-flash")
     
     assert result.content

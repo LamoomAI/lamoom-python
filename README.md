@@ -36,7 +36,7 @@ Add Azure keys to accommodate multiple realms:
 # setting as os.env
 os.setenv('AZURE_KEYS', '{"name_realm":{"url": "https://baseurl.azure.com/","key": "secret"}}')
 # or creating flow_prompt obj
-FlowPrompt(azure_keys={"realm_name":{"url": "https://baseurl.azure.com/", "key": "your_secret"}})
+Lamoom(azure_keys={"realm_name":{"url": "https://baseurl.azure.com/", "key": "your_secret"}})
 ```
 
 ### Model Agnostic:
@@ -45,22 +45,15 @@ Mix models easily, and districute the load across models. The system will automa
 - Gemini
 - OpenAI (w/ Azure OpenAI models)
 - Nebius with (Llama, DeepSeek, Mistral, Mixtral, dolphin, Qwen and others)
-```
-from lamoom import LamoomModelProviders
 
-def_behaviour = behaviour.AIModelsBehaviour(attempts=[
-    AttemptToCall(provider='openai', model='gpt-4o', weight=100),
-    AttemptToCall(provider='azure', realm='useast-1', deployment_id='gpt-4o' weight=100),
-    AttemptToCall(provider='azure', realm='useast-2', deployment_id='gpt-4o' weight=100),
-    AttemptToCall(provider=LamoomModelProviders.anthropic, model='claude-3-5-sonnet-20240620', weight=100
-    ),
-    AttemptToCall(provider=LamoomModelProviders.gemini, model='gemini-1.5-pro', weight=100
-    ),
-    AttemptToCall(provider=LamoomModelProviders.nebius, model='deepseek-ai/DeepSeek-R1', weight=100
-    )
-])
+Model string format is the following for Claude, Gemini, OpenAI, Nebius:
+`"{model_provider}/{model_name}"`
+For Azure models format is the following:
+`"azure.{realm}/{model_name}"`
 
-response_llm = client.call(agent.id, context, def_behaviour)
+```python
+response_llm = client.call(agent.id, context, model = "openai/gpt-4o")
+response_llm = client.call(agent.id, context, model = "azure.useast/gpt-4o")
 ```
 
 ### Lamoom Keys
@@ -71,24 +64,6 @@ Obtain an API token from Flow Prompt and add it:
 os.setenv('LAMOOM_API_TOKEN', 'your_token_here')
 # Via code: 
 Lamoom(api_token='your_api_token')
-```
-
-### Add Behavious:
-- use OPENAI_BEHAVIOR
-- or add your own Behaviour, you can set max count of attempts, if you have different AI Models, if the first attempt will fail because of retryable error, the second will be called, based on the weights.
-```
-from lamoom import OPENAI_GPT4_0125_PREVIEW_BEHAVIOUR
-behaviour = OPENAI_GPT4_0125_PREVIEW_BEHAVIOUR
-```
-or:
-```
-from lamoom import behaviour
-behaviour = behaviour.AIModelsBehaviour(
-    attempts=[
-        AttemptToCall(provider='azure', realm='useast-1', deployment_id='gpt-4o' weight=100),
-        AttemptToCall(provider='azure', realm='useast-2', deployment_id='gpt-4o' weight=100),
-    ]
-)
 ```
 
 ## Usage Examples:
@@ -106,7 +81,7 @@ prompt.add("You're {name}. Say Hello and ask what's their name.", role="system")
 # Call AI model with Lamoom
 context = {"name": "John Doe"}
 # test_data -  optional parameter used for generating tests
-response = client.call(prompt.id, context, behavior, test_data={
+response = client.call(prompt.id, context, "openai/gpt-4o", test_data={
     'ideal_answer': "Hello, I'm John Doe. What's your name?", 
     'behavior_name': "gemini"
     }
