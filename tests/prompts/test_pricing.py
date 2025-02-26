@@ -55,7 +55,7 @@ def test_claude_pricing(lamoom_client: Lamoom):
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
     
-    result_haiku = lamoom_client.call(prompt.id, context, "claude/claude-3-haiku-20240307", test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
-    result_sonnet = lamoom_client.call(prompt.id, context, "claude/claude-3-sonnet-20240229", test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    result_haiku = lamoom_client.call(prompt.id, context, "claude/claude-3-5-haiku-latest", test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    result_sonnet = lamoom_client.call(prompt.id, context, "claude/claude-3-5-sonnet-latest", test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     
     assert result_sonnet.metrics.price_of_call > result_haiku.metrics.price_of_call

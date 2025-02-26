@@ -218,11 +218,16 @@ class Lamoom:
                     sample_budget = self.calculate_budget_for_text(
                         user_prompt, result.get_message_str()
                     )
-                    result.metrics.price_of_call = self.get_price(
-                        current_attempt,
-                        sample_budget,
-                        calling_messages.prompt_budget,
-                    )
+                    
+                    try:
+                        result.metrics.price_of_call = self.get_price(
+                            current_attempt,
+                            sample_budget,
+                            calling_messages.prompt_budget,
+                        )
+                    except Exception as e:
+                        logger.exception(f"Error while getting price: {e}")
+                        result.metrics.price_of_call = 0
                     result.metrics.sample_tokens_used = sample_budget
                     result.metrics.prompt_tokens_used = calling_messages.prompt_budget
                     result.metrics.ai_model_details = (
@@ -368,6 +373,19 @@ class Lamoom:
     def get_price(
         self, attempt: AttemptToCall, sample_budget: int, prompt_budget: int
     ) -> Decimal:
-        return attempt.ai_model.get_prompt_price(
-            prompt_budget
-        ) + attempt.ai_model.get_sample_price(prompt_budget, sample_budget)
+        data = {
+                "provider": attempt.ai_model.provider.value,
+                "model": attempt.ai_model.name,
+                "output_tokens": sample_budget,
+                "input_tokens": prompt_budget,
+        }
+        
+        response = requests.post(
+            f"{LAMOOM_API_URI}/lib/pricing",
+            data=json.dumps(data),
+        )
+        
+        if response.status_code != 200:
+            return 0
+        
+        return response.json()["price"]

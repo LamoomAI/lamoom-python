@@ -14,7 +14,6 @@ from lamoom.ai_models.openai.openai_models import (
 )
 from lamoom.ai_models.openai.azure_models import AzureAIModel
 from lamoom.ai_models.claude.claude_model import ClaudeAIModel
-from lamoom.ai_models.gemini.gemini_model import GeminiAIModel
 from lamoom.responses import AIResponse
 from lamoom.ai_models.openai.responses import OpenAIResponse
 from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts

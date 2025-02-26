@@ -27,33 +27,6 @@ class FamilyModel(Enum):
     opus = "Claude 3 Opus"
 
 
-DEFAULT_PRICING = {
-    "price_per_prompt_1k_tokens": Decimal(0.003),
-    "price_per_sample_1k_tokens": Decimal(0.015),
-}
-
-CLAUDE_AI_PRICING = {
-    FamilyModel.haiku.value: {
-        C_200K: {
-            "price_per_prompt_1k_tokens": Decimal(0.00025),
-            "price_per_sample_1k_tokens": Decimal(0.00125),
-        }
-    },
-    FamilyModel.sonnet.value: {
-        C_200K: {
-            "price_per_prompt_1k_tokens": Decimal(0.003),
-            "price_per_sample_1k_tokens": Decimal(0.015),
-        }
-    },
-    FamilyModel.opus.value: {
-        C_200K: {
-            "price_per_prompt_1k_tokens": Decimal(0.015),
-            "price_per_sample_1k_tokens": Decimal(0.075),
-        }
-    },
-}
-
-
 @dataclass(kw_only=True)
 class ClaudeAIModel(AIModel):
     model: str
@@ -150,24 +123,9 @@ class ClaudeAIModel(AIModel):
             logger.exception("[CLAUDEAI] failed to handle chat stream", exc_info=e)
             raise RetryableCustomError(f"Claude AI call failed!")
 
+    @property
     def name(self) -> str:
         return self.model
-
-    @property
-    def price_per_prompt_1k_tokens(self) -> Decimal:
-        keys = list(CLAUDE_AI_PRICING[self.family].keys())
-        def_pricing = CLAUDE_AI_PRICING[self.family].get(keys[0])
-        return CLAUDE_AI_PRICING[self.family].get(self.max_tokens, def_pricing)[
-            "price_per_prompt_1k_tokens"
-        ]
-
-    @property
-    def price_per_sample_1k_tokens(self) -> Decimal:
-        keys = list(CLAUDE_AI_PRICING[self.family].keys())
-        def_pricing = CLAUDE_AI_PRICING[self.family].get(keys[0])
-        return CLAUDE_AI_PRICING[self.family].get(self.max_tokens, def_pricing)[
-            "price_per_sample_1k_tokens"
-        ]
 
     def get_params(self) -> t.Dict[str, t.Any]:
         return {

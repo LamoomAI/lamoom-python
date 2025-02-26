@@ -29,62 +29,6 @@ class FamilyModel(Enum):
     gpt4o_mini = "GPT-4o-mini"
     instruct_gpt = "InstructGPT"
 
-
-DEFAULT_PRICING = {
-    "price_per_prompt_1k_tokens": Decimal(0.01),
-    "price_per_sample_1k_tokens": Decimal(0.03),
-}
-
-
-OPEN_AI_PRICING = {
-    FamilyModel.chat.value: {
-        C_4K: {
-            "price_per_prompt_1k_tokens": Decimal(0.0015),
-            "price_per_sample_1k_tokens": Decimal(0.0020),
-        },
-        C_16K: {
-            "price_per_prompt_1k_tokens": Decimal(0.0010),
-            "price_per_sample_1k_tokens": Decimal(0.0020),
-        },
-        C_128K: {
-            "price_per_prompt_1k_tokens": Decimal(0.01),
-            "price_per_sample_1k_tokens": Decimal(0.03),
-        },
-    },
-    FamilyModel.gpt4.value: {
-        C_4K: {
-            "price_per_prompt_1k_tokens": Decimal(0.03),
-            "price_per_sample_1k_tokens": Decimal(0.06),
-        },
-        C_32K: {
-            "price_per_prompt_1k_tokens": Decimal(0.06),
-            "price_per_sample_1k_tokens": Decimal(0.12),
-        },
-        C_128K: {
-            "price_per_prompt_1k_tokens": Decimal(0.01),
-            "price_per_sample_1k_tokens": Decimal(0.03),
-        },
-    },
-    FamilyModel.gpt4o.value: {
-        C_16K: {
-            "price_per_prompt_1k_tokens": Decimal(0.005),
-            "price_per_sample_1k_tokens": Decimal(0.015),
-        },
-    },
-    FamilyModel.gpt4o_mini.value: {
-        C_16K: {
-            "price_per_prompt_1k_tokens": Decimal(0.00015),
-            "price_per_sample_1k_tokens": Decimal(0.0006),
-        },
-    },
-    FamilyModel.instruct_gpt.value: {
-        M_DAVINCI: {
-            "price_per_prompt_1k_tokens": Decimal(0.0015),
-            "price_per_sample_1k_tokens": Decimal(0.002),
-        },
-    },
-}
-
 BASE_URL_MAPPING = {
     'gemini': "https://generativelanguage.googleapis.com/v1beta/openai/",
     'nebius': 'https://api.studio.nebius.ai/v1/'
@@ -124,18 +68,6 @@ class OpenAIModel(AIModel):
     @property
     def name(self) -> str:
         return self.model
-
-    @property
-    def price_per_prompt_1k_tokens(self) -> Decimal:
-        return OPEN_AI_PRICING[self.family].get(self.max_tokens, DEFAULT_PRICING)[
-            "price_per_prompt_1k_tokens"
-        ]
-
-    @property
-    def price_per_sample_1k_tokens(self) -> Decimal:
-        return OPEN_AI_PRICING[self.family].get(self.max_tokens, DEFAULT_PRICING)[
-            "price_per_sample_1k_tokens"
-        ]
 
     def get_params(self) -> t.Dict[str, t.Any]:
         return {
