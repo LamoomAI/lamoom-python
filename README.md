@@ -1,8 +1,9 @@
-# Flow Prompt
+# Lamoom
 
 ## Introduction
 
 Lamoom is a dynamic, all-in-one library designed for managing and optimizing prompts and making tests based on the ideal answer for large language models (LLMs) in production and R&D. It facilitates dynamic data integration, latency and cost metrics visibility, and efficient load distribution across multiple AI models.
+
 
 ## Features
 
@@ -20,20 +21,19 @@ Install Flow Prompt using pip:
 pip install lamoom
 ```
 
+Obtain an API token from [Lamoom]('https://portal.lamoom.com') and add it as an env variable: `LAMOOM_API_TOKEN` ;
+
 ## Authentication
 
-### OpenAI Keys
+### Add Keys depending on models you're using:
 ```python
-# setting as os.env
-os.setenv('OPENAI_API_KEY', 'your_key_here')
-# or creating lamoom obj
-Lamoom(openai_key="your_key", openai_org="your_org")
-```
+# Add LAMOOM_API_TOKEN as an environment variable:
+os.setenv('LAMOOM_API_TOKEN', 'your_token_here')
 
-### Azure Keys
-Add Azure keys to accommodate multiple realms:
-```python
-# setting as os.env
+# add OPENAI_API_KEY
+os.setenv('OPENAI_API_KEY', 'your_key_here')
+
+# add Azure Keys
 os.setenv('AZURE_KEYS', '{"name_realm":{"url": "https://baseurl.azure.com/","key": "secret"}}')
 # or creating flow_prompt obj
 Lamoom(azure_keys={"realm_name":{"url": "https://baseurl.azure.com/", "key": "your_secret"}})
