@@ -35,7 +35,7 @@ def test_loading_prompt_from_service(client: Lamoom):
     first_str_dt = dt.now().strftime('%Y-%m-%d %H:%M:%S')
     prompt.add(f"It's a system message, Hello at {first_str_dt}", role="system")
     prompt.add('{messages}', is_multiple=True, in_one_message=True, label='messages')
-    print(client.call(prompt.id, context, "azure.useast/gpt-4o"))
+    print(client.call(prompt.id, context, "azure/useast/gpt-4o"))
 
     # updated version of the prompt
     client.service.clear_cache()
@@ -43,7 +43,7 @@ def test_loading_prompt_from_service(client: Lamoom):
     next_str_dt = dt.now().strftime('%Y-%m-%d %H:%M:%S')
     prompt.add(f"It's a system message, Hello at {next_str_dt}", role="system")
     prompt.add('{music}', is_multiple=True, in_one_message=True, label='music')
-    print(client.call(prompt.id, context, "azure.useast/gpt-4o"))
+    print(client.call(prompt.id, context, "azure/useast/gpt-4o"))
 
     # call uses outdated version of prompt, should use updated version of the prompt
     sleep(2)
@@ -51,7 +51,7 @@ def test_loading_prompt_from_service(client: Lamoom):
     prompt = Prompt(id=prompt_id, max_tokens=10000)
     prompt.add(f"It's a system message, Hello at {first_str_dt}", role="system")
     prompt.add('{messages}', is_multiple=True, in_one_message=True, label='messages')
-    result = client.call(prompt.id, context, "azure.useast/gpt-4o")
+    result = client.call(prompt.id, context, "azure/useast/gpt-4o")
     
     # should call the prompt with music
-    assert result.prompt.messages[-1] == {'role': 'user', 'content': 'music1\nmusic2'} 
+    assert result.prompt.messages[-1] == {'role': 'user', 'content': 'test1\ntest2'} 

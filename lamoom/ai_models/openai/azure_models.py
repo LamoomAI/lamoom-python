@@ -20,17 +20,6 @@ class AzureAIModel(OpenAIModel):
     def __str__(self) -> str:
         return f"{self.realm}-{self.deployment_id}-{self.family}"
 
-    def _define_tiktoken_encoding(self):
-        if self.family in (FamilyModel.chat.value, FamilyModel.gpt4.value):
-            self.tiktoken_encoding = "cl100k_base"
-        elif self.family == FamilyModel.instruct_gpt.value:
-            self.tiktoken_encoding = ""
-        else:
-            logger.warning(
-                f"Unknown realm for {self.deployment_id}. Please add it obviously. Setting as cl100k_base"
-            )
-            self.tiktoken_encoding = "cl100k_base"
-
     def __post_init__(self):
         if not self.family:
             if self.deployment_id.startswith("davinci"):

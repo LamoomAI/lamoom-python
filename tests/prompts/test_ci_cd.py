@@ -33,4 +33,4 @@ def test_creating_lamoom_test(client):
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
 
-    client.call(prompt.id, context, "azure.useast/gpt-4o", test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    client.call(prompt.id, context, "azure/useast/gpt-4o", test_data={'ideal_answer': "There are eight", 'behavior_name': "gemini"}, stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})

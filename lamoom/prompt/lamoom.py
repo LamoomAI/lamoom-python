@@ -143,14 +143,16 @@ class Lamoom:
                 )
     
     def extract_provider_name(self, model: str) -> dict:
-        model_provider = model.split("/")[0].lower()
-        model_name = model.split("/")[1]
-        realm = None
-        if "azure" in model_provider:
-            model_provider, realm = model_provider.split(".")
+        parts = model.split("/")
+    
+        if "azure" in parts[0].lower() and len(parts) == 3:
+            model_provider, realm, model_name = parts
+        else:
+            model_provider, model_name = parts
+            realm = None
         
         return {
-            'provider': model_provider,
+            'provider': model_provider.lower(),
             'model_name': model_name,
             'realm': realm
         }

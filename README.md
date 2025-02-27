@@ -49,11 +49,11 @@ Mix models easily, and districute the load across models. The system will automa
 Model string format is the following for Claude, Gemini, OpenAI, Nebius:
 `"{model_provider}/{model_name}"`
 For Azure models format is the following:
-`"azure.{realm}/{model_name}"`
+`"azure/{realm}/{model_name}"`
 
 ```python
 response_llm = client.call(agent.id, context, model = "openai/gpt-4o")
-response_llm = client.call(agent.id, context, model = "azure.useast/gpt-4o")
+response_llm = client.call(agent.id, context, model = "azure/useast/gpt-4o")
 ```
 
 ### Lamoom Keys

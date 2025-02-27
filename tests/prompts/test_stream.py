@@ -36,7 +36,7 @@ def test_loading_prompt_from_service(client):
     prompt.add("{text}")
     prompt.add("It's a system message, Hello {name}", role="assistant")
     
-    client.call(prompt.id, context, "azure.useast/gpt-4o", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    client.call(prompt.id, context, "azure/useast/gpt-4o", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     client.call(prompt.id, context, "claude/claude-3-haiku-20240307", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     client.call(prompt.id, context, "gemini/gemini-1.5-flash", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     
