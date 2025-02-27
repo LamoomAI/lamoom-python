@@ -191,21 +191,6 @@ class LamoomService:
         logger.info(f"Created Ci/CD for prompt {prompt_data['prompt_id']}")
 
     @classmethod
-    def update_user_overview(cls, user_id: str, overview: str, api_token: str):
-        url = f"{cls.url}/lib/files?updateOverview"
-        headers = {"Authorization": f"Token {api_token}"}
-        data = {
-            "user_id": user_id,
-            "overview": overview,
-        }
-        json_data = json.dumps(data)
-        logger.debug(f"Request to {url} with data: {data}")
-        response = requests.post(url, headers=headers, data=json_data)
-        logger.info(f"Update overview of the user: ${user_id}")
-
-        return response
-
-    @classmethod
     def get_file_names(
         cls,
         prefix: str,

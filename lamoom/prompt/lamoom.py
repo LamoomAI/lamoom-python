@@ -315,18 +315,6 @@ class Lamoom:
         
         return response
     
-    def update_overview(self, overview: str, user_id: str = None):
-        """Update user's overview
-
-        Args:
-            user_id (str): user id,
-            overview (str): new overview to replace the old one
-        """
-        
-        response = LamoomService.update_user_overview(user_id, overview, self.api_token)
-        
-        return response
-    
     def get_file_names(self, prefix: str, user_id: str = None):
         """Fetch all filenames of the given user
 
