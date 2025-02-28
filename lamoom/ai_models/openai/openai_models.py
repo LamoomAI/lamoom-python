@@ -132,13 +132,11 @@ class OpenAIModel(AIModel):
         client_secrets: dict = {},
         **kwargs,
     ) -> OpenAIResponse:
-        max_tokens = min(max_tokens, self.max_tokens, self.max_sample_budget)
-        common_args = get_common_args(max_tokens)
+                
         kwargs = {
             **{
                 "messages": messages,
             },
-            **common_args,
             **self.get_params(),
             **kwargs,
         }
