@@ -3,7 +3,7 @@ import logging
 import time
 
 from pytest import fixture
-from lamoom import Lamoom, Prompt
+from lamoom import Lamoom, Prompt, OpenAIResponse
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +18,7 @@ def stream_function(text, **kwargs):
 def stream_check_connection(validate, **kwargs):
     return validate
 
-def test_loading_prompt_from_service(client):
+def test_stream(client: Lamoom):
 
     context = {
         'messages': ['test1', 'test2'],
@@ -36,7 +36,8 @@ def test_loading_prompt_from_service(client):
     prompt.add("{text}")
     prompt.add("It's a system message, Hello {name}", role="assistant")
     
-    client.call(prompt.id, context, "azure/useast/gpt-4o", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    result: OpenAIResponse = client.call(prompt.id, context, "azure/useast/gpt-4o", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     client.call(prompt.id, context, "claude/claude-3-haiku-20240307", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     client.call(prompt.id, context, "gemini/gemini-1.5-flash", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     
+    assert "message" in result.to_dict()
