@@ -19,6 +19,7 @@ jobs:
         echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env
         echo LAMOOM_API_URI=${{ secrets.LAMOOM_API_URI }} >> .env
         echo LAMOOM_API_TOKEN=${{ secrets.LAMOOM_API_TOKEN }} >> .env
+        echo PYPI_API_KEY=${{ secrets.PYPI_API_KEY }} >> .env
         cat .env
 
     - name: Install dependencies
@@ -40,3 +41,7 @@ jobs:
     - name: Run tests with pytest
       run: |
         poetry run make test
+
+    - name: Publish package
+      run: |
+        poetry run make publish-release
