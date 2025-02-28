@@ -20,7 +20,10 @@ def set_log_level():
 
 @pytest.fixture
 def lamoom():
-    return Lamoom()
+    return Lamoom(
+        openai_key="123",
+        azure_keys={"us-east-1": {"url": "https://us-east-1.api.azure.openai.org", "key": "123"}}
+    )
 
 @pytest.fixture
 def openai_gpt_4_behaviour():

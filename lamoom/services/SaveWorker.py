@@ -21,7 +21,9 @@ class SaveWorker:
         context: t.Dict[str, t.Any],
         response: AIResponse,
     ):
-        LamoomService.save_user_interaction(api_token, prompt_data, context, response)
+        LamoomService.save_user_interaction(
+            api_token, prompt_data, context, response
+        )
 
     def worker(self):
         while True:

@@ -19,24 +19,7 @@ def client():
     return lamoom
 
 
-@fixture
-def gpt4_behaviour(lamoom: Lamoom):
-    return behaviour.AIModelsBehaviour(
-        attempts=[
-            AttemptToCall(
-                ai_model=AzureAIModel(
-                    realm='useast',
-                    deployment_id="gpt-4o",
-                    max_tokens=C_128K,
-                    support_functions=True,
-                ),
-                weight=100,
-            ),
-        ]
-    )
-
-
-def test_loading_prompt_from_service(client, gpt4_behaviour):
+def test_loading_prompt_from_service(client: Lamoom):
     context = {
         'messages': ['test1', 'test2'],
         'assistant_response_in_progress': None,
@@ -52,7 +35,7 @@ def test_loading_prompt_from_service(client, gpt4_behaviour):
     first_str_dt = dt.now().strftime('%Y-%m-%d %H:%M:%S')
     prompt.add(f"It's a system message, Hello at {first_str_dt}", role="system")
     prompt.add('{messages}', is_multiple=True, in_one_message=True, label='messages')
-    print(client.call(prompt.id, context, gpt4_behaviour))
+    print(client.call(prompt.id, context, "azure/useast/gpt-4o"))
 
     # updated version of the prompt
     client.service.clear_cache()
@@ -60,7 +43,7 @@ def test_loading_prompt_from_service(client, gpt4_behaviour):
     next_str_dt = dt.now().strftime('%Y-%m-%d %H:%M:%S')
     prompt.add(f"It's a system message, Hello at {next_str_dt}", role="system")
     prompt.add('{music}', is_multiple=True, in_one_message=True, label='music')
-    print(client.call(prompt.id, context, gpt4_behaviour))
+    print(client.call(prompt.id, context, "azure/useast/gpt-4o"))
 
     # call uses outdated version of prompt, should use updated version of the prompt
     sleep(2)
@@ -68,7 +51,7 @@ def test_loading_prompt_from_service(client, gpt4_behaviour):
     prompt = Prompt(id=prompt_id, max_tokens=10000)
     prompt.add(f"It's a system message, Hello at {first_str_dt}", role="system")
     prompt.add('{messages}', is_multiple=True, in_one_message=True, label='messages')
-    result = client.call(prompt.id, context, gpt4_behaviour)
+    result = client.call(prompt.id, context, "azure/useast/gpt-4o")
     
     # should call the prompt with music
-    assert result.prompt.messages[-1] == {'role': 'user', 'content': 'music1\nmusic2'} 
+    assert result.prompt.messages[-1] == {'role': 'user', 'content': 'test1\ntest2'} 

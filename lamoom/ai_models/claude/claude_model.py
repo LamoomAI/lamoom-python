@@ -1,7 +1,7 @@
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 
-from lamoom.ai_models.constants import C_200K
+from lamoom.ai_models.constants import C_200K, C_4K
 from lamoom.responses import AIResponse
 from decimal import Decimal
 from enum import Enum
@@ -27,36 +27,10 @@ class FamilyModel(Enum):
     opus = "Claude 3 Opus"
 
 
-DEFAULT_PRICING = {
-    "price_per_prompt_1k_tokens": Decimal(0.003),
-    "price_per_sample_1k_tokens": Decimal(0.015),
-}
-
-CLAUDE_AI_PRICING = {
-    FamilyModel.haiku.value: {
-        C_200K: {
-            "price_per_prompt_1k_tokens": Decimal(0.00025),
-            "price_per_sample_1k_tokens": Decimal(0.00125),
-        }
-    },
-    FamilyModel.sonnet.value: {
-        C_200K: {
-            "price_per_prompt_1k_tokens": Decimal(0.003),
-            "price_per_sample_1k_tokens": Decimal(0.015),
-        }
-    },
-    FamilyModel.opus.value: {
-        C_200K: {
-            "price_per_prompt_1k_tokens": Decimal(0.015),
-            "price_per_sample_1k_tokens": Decimal(0.075),
-        }
-    },
-}
-
-
 @dataclass(kw_only=True)
 class ClaudeAIModel(AIModel):
     model: str
+    max_tokens: int = C_4K
     api_key: str = None
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.CLAUDE
     family: str = None
@@ -92,13 +66,10 @@ class ClaudeAIModel(AIModel):
                 result[-1]["content"] += message.get("content")
         return result
 
-    def call(
-        self,
-        messages: t.List[dict],
-        max_tokens: int,
-        client_secrets: dict = {},
-        **kwargs,
-    ) -> AIResponse:
+
+    def call(self, messages: t.List[dict], max_tokens: int, client_secrets: dict = {}, **kwargs) -> AIResponse:
+        max_tokens = min(max_tokens, self.max_tokens)
+        
         common_args = get_common_args(max_tokens)
         kwargs = {
             **common_args,
@@ -152,24 +123,9 @@ class ClaudeAIModel(AIModel):
             logger.exception("[CLAUDEAI] failed to handle chat stream", exc_info=e)
             raise RetryableCustomError(f"Claude AI call failed!")
 
+    @property
     def name(self) -> str:
         return self.model
-
-    @property
-    def price_per_prompt_1k_tokens(self) -> Decimal:
-        keys = list(CLAUDE_AI_PRICING[self.family].keys())
-        def_pricing = CLAUDE_AI_PRICING[self.family].get(keys[0])
-        return CLAUDE_AI_PRICING[self.family].get(self.max_tokens, def_pricing)[
-            "price_per_prompt_1k_tokens"
-        ]
-
-    @property
-    def price_per_sample_1k_tokens(self) -> Decimal:
-        keys = list(CLAUDE_AI_PRICING[self.family].keys())
-        def_pricing = CLAUDE_AI_PRICING[self.family].get(keys[0])
-        return CLAUDE_AI_PRICING[self.family].get(self.max_tokens, def_pricing)[
-            "price_per_sample_1k_tokens"
-        ]
 
     def get_params(self) -> t.Dict[str, t.Any]:
         return {

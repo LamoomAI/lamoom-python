@@ -20,34 +20,6 @@ class AzureAIModel(OpenAIModel):
     def __str__(self) -> str:
         return f"{self.realm}-{self.deployment_id}-{self.family}"
 
-    def _define_family(self):
-        if self.deployment_id.startswith("davinci"):
-            self.family = FamilyModel.instruct_gpt.value
-        elif self.deployment_id.startswith(("gpt3", "gpt-3")):
-            self.family = FamilyModel.chat.value
-        elif self.deployment_id.startswith("gpt-4o-mini"):
-            self.family = FamilyModel.gpt4o_mini.value
-        elif self.deployment_id.startswith("gpt-4o"):
-            self.family = FamilyModel.gpt4o.value
-        elif self.deployment_id.startswith(("gpt4", "gpt-4", "gpt")):
-            self.family = FamilyModel.gpt4.value
-        else:
-            logger.warning(
-                f"Unknown family for {self.deployment_id}. Please add it obviously. Setting as GPT4"
-            )
-            self.family = FamilyModel.gpt4.value
-
-    def _define_tiktoken_encoding(self):
-        if self.family in (FamilyModel.chat.value, FamilyModel.gpt4.value):
-            self.tiktoken_encoding = "cl100k_base"
-        elif self.family == FamilyModel.instruct_gpt.value:
-            self.tiktoken_encoding = ""
-        else:
-            logger.warning(
-                f"Unknown realm for {self.deployment_id}. Please add it obviously. Setting as cl100k_base"
-            )
-            self.tiktoken_encoding = "cl100k_base"
-
     def __post_init__(self):
         if not self.family:
             if self.deployment_id.startswith("davinci"):

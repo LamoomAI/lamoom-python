@@ -29,66 +29,16 @@ class FamilyModel(Enum):
     gpt4o_mini = "GPT-4o-mini"
     instruct_gpt = "InstructGPT"
 
-
-DEFAULT_PRICING = {
-    "price_per_prompt_1k_tokens": Decimal(0.01),
-    "price_per_sample_1k_tokens": Decimal(0.03),
-}
-
-
-OPEN_AI_PRICING = {
-    FamilyModel.chat.value: {
-        C_4K: {
-            "price_per_prompt_1k_tokens": Decimal(0.0015),
-            "price_per_sample_1k_tokens": Decimal(0.0020),
-        },
-        C_16K: {
-            "price_per_prompt_1k_tokens": Decimal(0.0010),
-            "price_per_sample_1k_tokens": Decimal(0.0020),
-        },
-        C_128K: {
-            "price_per_prompt_1k_tokens": Decimal(0.01),
-            "price_per_sample_1k_tokens": Decimal(0.03),
-        },
-    },
-    FamilyModel.gpt4.value: {
-        C_4K: {
-            "price_per_prompt_1k_tokens": Decimal(0.03),
-            "price_per_sample_1k_tokens": Decimal(0.06),
-        },
-        C_32K: {
-            "price_per_prompt_1k_tokens": Decimal(0.06),
-            "price_per_sample_1k_tokens": Decimal(0.12),
-        },
-        C_128K: {
-            "price_per_prompt_1k_tokens": Decimal(0.01),
-            "price_per_sample_1k_tokens": Decimal(0.03),
-        },
-    },
-    FamilyModel.gpt4o.value: {
-        C_128K: {
-            "price_per_prompt_1k_tokens": Decimal(0.005),
-            "price_per_sample_1k_tokens": Decimal(0.015),
-        },
-    },
-    FamilyModel.gpt4o_mini.value: {
-        C_128K: {
-            "price_per_prompt_1k_tokens": Decimal(0.00015),
-            "price_per_sample_1k_tokens": Decimal(0.0006),
-        },
-    },
-    FamilyModel.instruct_gpt.value: {
-        M_DAVINCI: {
-            "price_per_prompt_1k_tokens": Decimal(0.0015),
-            "price_per_sample_1k_tokens": Decimal(0.002),
-        },
-    },
+BASE_URL_MAPPING = {
+    'gemini': "https://generativelanguage.googleapis.com/v1beta/openai/",
+    'nebius': 'https://api.studio.nebius.ai/v1/'
 }
 
 
 @dataclass(kw_only=True)
 class OpenAIModel(AIModel):
     model: t.Optional[str]
+    max_tokens: int = C_16K
     support_functions: bool = False
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.OPENAI
     family: str = None
@@ -119,23 +69,14 @@ class OpenAIModel(AIModel):
     def name(self) -> str:
         return self.model
 
-    @property
-    def price_per_prompt_1k_tokens(self) -> Decimal:
-        return OPEN_AI_PRICING[self.family].get(self.max_tokens, DEFAULT_PRICING)[
-            "price_per_prompt_1k_tokens"
-        ]
-
-    @property
-    def price_per_sample_1k_tokens(self) -> Decimal:
-        return OPEN_AI_PRICING[self.family].get(self.max_tokens, DEFAULT_PRICING)[
-            "price_per_sample_1k_tokens"
-        ]
-
     def get_params(self) -> t.Dict[str, t.Any]:
         return {
             "model": self.model,
         }
 
+    def get_base_url(self) -> str | None:
+        return BASE_URL_MAPPING.get(self.provider.value, None)
+    
     def get_metrics_data(self):
         return {
             "model": self.model,
@@ -175,8 +116,9 @@ class OpenAIModel(AIModel):
 
     def get_client(self, client_secrets: dict = {}):
         return OpenAI(
-            organization=client_secrets.get("organization"),
+            organization=client_secrets.get("organization", None),
             api_key=client_secrets["api_key"],
+            base_url=self.get_base_url()
         )
 
     def call_chat_completion(
@@ -190,13 +132,11 @@ class OpenAIModel(AIModel):
         client_secrets: dict = {},
         **kwargs,
     ) -> OpenAIResponse:
-        max_tokens = min(max_tokens, self.max_tokens, self.max_sample_budget)
-        common_args = get_common_args(max_tokens)
+                
         kwargs = {
             **{
                 "messages": messages,
             },
-            **common_args,
             **self.get_params(),
             **kwargs,
         }
