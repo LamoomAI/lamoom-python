@@ -59,7 +59,7 @@ class OpenAIModel(AIModel):
         elif self.model.startswith(("gpt4", "gpt-4", "gpt")):
             self.family = FamilyModel.gpt4.value
         else:
-            logger.warning(
+            logger.info(
                 f"Unknown family for {self.model}. Please add it obviously. Setting as GPT4"
             )
             self.family = FamilyModel.gpt4.value
