@@ -84,7 +84,7 @@ class GeminiAIModel(AIModel):
         elif PRO in self.model:
             self.family = FamilyModel.pro.value
         else:
-            logger.warning(
+            logger.info(
                 f"Unknown family for {self.model}. Please add it obviously. Setting as Gemini 1.5 Flash"
             )
             self.family = FamilyModel.flash.value

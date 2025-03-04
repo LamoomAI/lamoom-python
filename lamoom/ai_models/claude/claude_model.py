@@ -69,7 +69,7 @@ class ClaudeAIModel(AIModel):
         elif OPUS in self.model:
             self.family = FamilyModel.opus.value
         else:
-            logger.warning(
+            logger.info(
                 f"Unknown family for {self.model}. Please add it obviously. Setting as Claude 3 Opus"
             )
             self.family = FamilyModel.opus.value
