@@ -1,0 +1,48 @@
+name: publish
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    container: python:3.11-slim
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GH_PAT }}
+
+    - name: Install dependencies
+      run: |
+        apt-get update && apt-get install -y curl build-essential git
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+
+    - name: Install Poetry
+      run: pip install poetry
+
+    - name: Install Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.11
+        cache: poetry
+
+    - name: Install Python libraries
+      run: poetry install
+
+    - name: Publish package and update version
+      env:
+        PYPI_API_KEY: ${{ secrets.PYPI_API_KEY }}
+      run: |
+        poetry run make publish-release
+        version=$(poetry version -s)
+        git add pyproject.toml
+        git commit -m "Bump version to ${version} [skip ci]"
+        git push 
