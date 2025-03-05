@@ -4,34 +4,20 @@
 
   note over Lamoom,LamoomService: Process of creating tests for CI/CD validation
 
-    alt Direct test creation via create_test method
-      Client->>Lamoom: create_test(prompt_id, test_context, ideal_answer)
-      
-      Lamoom->>LamoomService: POST /lib/tests?createTest
+    alt Test creation via create_test method
+      Lamoom->>LamoomService: create_test(prompt_id, test_context, ideal_answer)
       note right of LamoomService: Server creates test with:\n- Prompt ID\n- Test context\n- Ideal answer
-      
-      LamoomService-->>Lamoom: Return create test result
-      
-      Lamoom-->>Client: Return test creation result
-    end
-    
-    alt Test creation during normal prompt call with test_data
-      Client->>Lamoom: call(prompt_id, context, model, test_data={ideal_answer})
 
-      Lamoom->>Lamoom: Fetches prompt, calls LLM, gets response
+      LamoomService-->>Lamoom: Return create test result
+    end
+
+    alt Test creation during normal prompt call with test_data
+      Lamoom->>Lamoom: call(prompt_id, context, model, test_data={ideal_answer}),  Fetches prompt, calls LLM, gets response
 
       Lamoom->>SaveWorker: add_task(api_token, prompt_data, context, result, test_data)
-      SaveWorker->>LamoomService: create_test_with_ideal_answer(api_token, prompt_data, context, test_data)
-
-      note right of LamoomService: If ideal_answer exists in test_data
-
-      LamoomService->>LamoomService: POST /lib/tests
-      note right of LamoomService: Server creates CI/CD test with:\n- Context\n- Prompt\n- Ideal answer\n- Behavior name
-
-      LamoomService-->>SaveWorker: Return (logs success message)
-
-      SaveWorker-->>Lamoom: (Async) Task complete
-      Lamoom-->>Client: Return AIResponse (without waiting for test creation)
+      SaveWorker->>LamoomService: create_test_with_ideal_answer
+      note right of LamoomService:  Server creates CI/CD test with:\n- Context\n- Prompt\n- Ideal answer
+      Lamoom-->>Lamoom: Return AIResponse (without waiting for test creation)
     end
 
   @enduml

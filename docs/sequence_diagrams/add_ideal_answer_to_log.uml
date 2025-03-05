@@ -1,24 +1,9 @@
 @startuml
 
   title Lamoom Feedback Flow: Adding ideal answers to existing responses
-
-  note over Client,LamoomService: Process of providing feedback on previous responses
-
-    Client->>Lamoom: add_ideal_answer(response_id, ideal_answer)
-    activate Lamoom
-
-    Lamoom->>LamoomService: update_response_ideal_answer(api_token, log_id, ideal_answer)
-    activate LamoomService
-
-    LamoomService->>LamoomService: Prepare feedback data
-
-    LamoomService->>LamoomService: PUT /lib/logs
-    note right of LamoomService: Server updates existing log with:\n- Ideal answer for comparison\n- Used for quality assessment\n- Creating training data\n- Generating automated tests
-
+  note over Lamoom,LamoomService: Process of providing feedback on previous responses
+    Lamoom->>Lamoom: add_ideal_answer(response_id, ideal_answer)
+    Lamoom->>LamoomService:  update_response_ideal_answer(api_token, log_id, ideal_answer)
+    note right of LamoomService: PUT /lib/logs: Server updates existing log with:\n- Ideal answer for comparison\n- Used for quality assessment\n- Creating training data\n- Generating automated tests
     LamoomService-->>Lamoom: Return feedback submission result
-    deactivate LamoomService
-
-    Lamoom-->>Client: Return feedback submission result
-    deactivate Lamoom
-
   @enduml

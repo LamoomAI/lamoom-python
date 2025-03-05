@@ -1,8 +1,17 @@
+
 # Lamoom
 
-## Introduction
+## Our Philosophy
 
+Lamoom, derived from "Lambda on Mechanisms," refers to computation within a system that iteratively guides the LLM to perform correctly. Inspired by Amazon’s culture, as Jeff Bezos said, "Good intentions don't work, mechanisms do," we focus on building mechanisms for LLMs rather than relying on their good intentions
+
+![Lamoom Mechanisms](docs/media/lamoom_mechanisms.gif)
+
+
+## Introduction
 Lamoom is a dynamic, all-in-one library designed for managing and optimizing prompts and making tests based on the ideal answer for large language models (LLMs) in production and R&D. It facilitates dynamic data integration, latency and cost metrics visibility, and efficient load distribution across multiple AI models.
+
+[![Lamoom Introduction Video](https://img.youtube.com/vi/1opO_5kRf98/0.jpg)](https://www.youtube.com/watch?v=1opO_5kRf98 "Lamoom Introduction Video")
 
 ## Features
 
@@ -10,7 +19,7 @@ Lamoom is a dynamic, all-in-one library designed for managing and optimizing pro
 - **Dynamic Prompt Development**: Avoid budget exceptions with dynamic data.
 - **Multi-Model Support**: Seamlessly integrate with various LLMs like OpenAI, Anthropic, and more.
 - **Real-Time Insights**: Monitor interactions, request/response metrics in production.
-- **Prompt Testing and Evolution**: Quickly test and iterate on prompts using historical data.
+- **Prompt Testing and Evaluation**: Quickly test and iterate on prompts using historical data.
 - **Smart Prompt Caching**: Efficiently cache prompts for 5 minutes to reduce latency while keeping them updated.
 - **Asynchronous Logging**: Record interactions without blocking the main execution flow.
 
@@ -20,7 +29,7 @@ Lamoom is a dynamic, all-in-one library designed for managing and optimizing pro
 Lamoom implements an efficient prompt caching system with a 5-minute TTL (Time-To-Live):
 - **Automatic Updates**: When you call a prompt, Lamoom checks if a newer version exists on the server.
 - **Cache Invalidation**: Prompts are automatically refreshed after 5 minutes to ensure up-to-date content.
-- **Local Fallback**: If the server is unavailable, Lamoom falls back to the locally defined prompt.
+- **Local Fallback**: If the LamoomService is unavailable, Lamoom library falls back to the locally defined prompt.
 - **Version Control**: Track prompt versions between local and server instances.
 
 ![Lamoom Call Flow](docs/sequence_diagrams/pngs/lamoom_call.png)
