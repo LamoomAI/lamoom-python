@@ -38,6 +38,7 @@ class Lamoom:
     claude_key: str = None
     gemini_key: str = None
     azure_keys: t.Dict[str, str] = None
+    nebius_key: str = None
     secrets: Secrets = None
 
     clients = {}
@@ -65,6 +66,9 @@ class Lamoom:
         if not self.claude_key and self.secrets.CLAUDE_API_KEY:
             logger.debug(f"Using Claude API key from secrets")
             self.claude_key = self.secrets.CLAUDE_API_KEY
+        if not self.nebius_key and self.secrets.NEBIUS_API_KEY:
+            logger.debug(f"Using Nebius API key from secrets")
+            self.nebius_key = self.secrets.NEBIUS_API_KEY
         self.service = LamoomService()
         if self.openai_key:
             self.clients[AI_MODELS_PROVIDER.OPENAI] = {
@@ -85,6 +89,8 @@ class Lamoom:
             self.clients[AI_MODELS_PROVIDER.CLAUDE] = {"api_key": self.claude_key}
         if self.gemini_key:
             self.clients[AI_MODELS_PROVIDER.GEMINI] = {"api_key": self.gemini_key}
+        if self.nebius_key:
+            self.clients[AI_MODELS_PROVIDER.NEBIUS] = {"api_key": self.nebius_key}
         self.worker = SaveWorker()
 
     def create_test(
@@ -147,6 +153,10 @@ class Lamoom:
     
         if "azure" in parts[0].lower() and len(parts) == 3:
             model_provider, realm, model_name = parts
+        elif "nebius" in parts[0].lower() and len(parts) == 3:
+            model_provider = parts[0] 
+            model_name = f"{parts[1]}/{parts[2]}"
+            realm = None
         else:
             model_provider, model_name = parts
             realm = None

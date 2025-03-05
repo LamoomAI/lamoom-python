@@ -26,6 +26,6 @@ def test_model(client):
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
 
-    result = client.call(prompt.id, context, "openai/o3-mini")
+    result = client.call(prompt.id, context, "nebius/deepseek-ai/DeepSeek-R1")
     
     assert result.content
