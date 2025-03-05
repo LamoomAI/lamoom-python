@@ -1,17 +1,20 @@
-
 # Lamoom
 
 ## Our Philosophy
 
-Lamoom, derived from "Lambda on Mechanisms," refers to computation within a system that iteratively guides the LLM to perform correctly. Inspired by Amazon’s culture, as Jeff Bezos said, "Good intentions don't work, mechanisms do," we focus on building mechanisms for LLMs rather than relying on their good intentions
+Lamoom, derived from "Lambda on Mechanisms," refers to computation within a system that iteratively guides the LLM to perform correctly. Inspired by Amazon's culture, as Jeff Bezos said, "Good intentions don't work, mechanisms do," we focus on building mechanisms for LLMs rather than relying on their good intentions
 
-![Lamoom Mechanisms](docs/media/lamoom_mechanisms.gif)
+![Lamoom Mechanisms](docs/media/optimized_lamoom_mechanisms.gif)
 
 
 ## Introduction
 Lamoom is a dynamic, all-in-one library designed for managing and optimizing prompts and making tests based on the ideal answer for large language models (LLMs) in production and R&D. It facilitates dynamic data integration, latency and cost metrics visibility, and efficient load distribution across multiple AI models.
 
 [![Lamoom Introduction Video](https://img.youtube.com/vi/1opO_5kRf98/0.jpg)](https://www.youtube.com/watch?v=1opO_5kRf98 "Lamoom Introduction Video")
+
+## Getting Started
+
+To help you get started quickly, you can explore our [Getting Started Notebook](docs/getting_started_notebook.ipynb) which provides step-by-step examples of using Lamoom.
 
 ## Features
 
@@ -67,6 +70,10 @@ pip install lamoom
 ```
 
 Obtain an API token from [Lamoom]('https://portal.lamoom.com') and add it as an env variable: `LAMOOM_API_TOKEN` ;
+
+## Getting Started
+
+To help you get started quickly, you can explore our [Getting Started Notebook](docs/getting_started_notebook.ipynb) which provides step-by-step examples of using Lamoom.
 
 ## Authentication
 
