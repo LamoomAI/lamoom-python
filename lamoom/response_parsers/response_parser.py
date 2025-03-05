@@ -52,7 +52,7 @@ def get_json_from_response(response: AIResponse, start_from: int = 0) -> TaggedC
     )
     if content:
         try:
-            json_response = eval(content)
+            json_response = json.loads(content)
             return TaggedContent(
                 content=content,
                 parsed_content=json_response,
