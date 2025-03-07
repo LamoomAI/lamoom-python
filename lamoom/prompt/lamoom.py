@@ -94,7 +94,7 @@ class Lamoom:
         self.worker = SaveWorker()
 
     def create_test(
-        self, prompt_id: str, test_context: t.Dict[str, str], ideal_answer: str = None
+        self, prompt_id: str, test_context: t.Dict[str, str], ideal_answer: str = None, model_name: str = None
     ):
         """
         Create new test
@@ -108,6 +108,7 @@ class Lamoom:
         data = {
             "prompt_id": prompt_id,
             "ideal_answer": ideal_answer,
+            "model_name": model_name,
             "test_context": test_context,
         }
         json_data = json.dumps(data)
@@ -256,7 +257,7 @@ class Lamoom:
                             prompt.service_dump(),
                             context,
                             result,
-                            test_data
+                            {**test_data, "call_model": model}
                         )
                     return result
                 except RetryableCustomError as e:

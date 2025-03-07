@@ -26,4 +26,4 @@ def test_creating_lamoom_test(client):
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
 
-    client.create_test(prompt_id, context)
+    client.create_test(prompt_id, context, model_name="gemini/gemini-1.5-flash")

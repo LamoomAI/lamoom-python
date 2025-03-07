@@ -176,14 +176,12 @@ class LamoomService:
             return
         url = f"{cls.url}/lib/tests"
         headers = {"Authorization": f"Token {api_token}"}
-        behavior_name = test_data.get("behavior_name") or test_data.get(
-            "behaviour_name"
-        )
+        model_name = test_data.get("model_name") or test_data.get("call_model") or None
         data = {
             "context": context,
             "prompt": prompt_data,
             "ideal_answer": ideal_answer,
-            "behavior_name": behavior_name,
+            "model_name": model_name,
         }
         logger.debug(f"Request to {url} with data: {data}")
         json_data = json.dumps(data)
