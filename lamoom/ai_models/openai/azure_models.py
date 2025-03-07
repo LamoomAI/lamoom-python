@@ -41,7 +41,7 @@ class AzureAIModel(OpenAIModel):
 
     @property
     def name(self) -> str:
-        return f"{self.deployment_id}-{self.realm}"
+        return f"{self.deployment_id}"
 
     def get_params(self) -> t.Dict[str, t.Any]:
         return {
