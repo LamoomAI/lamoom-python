@@ -142,7 +142,7 @@ print(response.content)
 # Call with test_data to automatically generate tests
 response = client.call(prompt.id, context, "openai/gpt-4o", test_data={
     'ideal_answer': "Hello, I'm John Doe. What's your name?", 
-    'behavior_name': "gemini"
+    'model_name': "gemini/gemini-1.5-flash"
 })
 ```
 
@@ -152,7 +152,8 @@ response = client.call(prompt.id, context, "openai/gpt-4o", test_data={
 client.create_test(
     prompt_id="greet_user",
     test_context={"name": "John Doe"},
-    ideal_answer="Hello, I'm John Doe. What's your name?"
+    ideal_answer="Hello, I'm John Doe. What's your name?",
+    model_name="gemini/gemini-1.5-flash"
 )
 ```
 
