@@ -26,6 +26,17 @@ def test_model(client):
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
 
-    result = client.call(prompt.id, context, "nebius/deepseek-ai/DeepSeek-R1")
+    result = client.call(prompt.id, context, "custom/deepseek-ai/DeepSeek-R1", provider_url="https://api.studio.nebius.ai/v1/")
+    assert result.content
     
+    result = client.call(prompt.id, context, "openai/gpt-4o")
+    assert result.content
+    
+    result = client.call(prompt.id, context, "azure/useast/gpt-4o")
+    assert result.content
+    
+    result = client.call(prompt.id, context, "gemini/gemini-1.5-flash")
+    assert result.content
+    
+    result = client.call(prompt.id, context, "claude/claude-3-5-haiku-latest")
     assert result.content

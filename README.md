@@ -89,6 +89,9 @@ os.setenv('OPENAI_API_KEY', 'your_key_here')
 os.setenv('AZURE_KEYS', '{"name_realm":{"url": "https://baseurl.azure.com/","key": "secret"}}')
 # or creating flow_prompt obj
 Lamoom(azure_keys={"realm_name":{"url": "https://baseurl.azure.com/", "key": "your_secret"}})
+
+# add Custom Models Key
+os.setenv('CUSTOM_API_KEY', 'your_key_here')
 ```
 
 ### Model Agnostic:
@@ -97,6 +100,7 @@ Mix models easily, and districute the load across models. The system will automa
 - Gemini
 - OpenAI (w/ Azure OpenAI models)
 - Nebius with (Llama, DeepSeek, Mistral, Mixtral, dolphin, Qwen and others)
+- Custom providers
 
 Model string format is the following for Claude, Gemini, OpenAI, Nebius:
 `"{model_provider}/{model_name}"`
@@ -106,6 +110,14 @@ For Azure models format is the following:
 ```python
 response_llm = client.call(agent.id, context, model = "openai/gpt-4o")
 response_llm = client.call(agent.id, context, model = "azure/useast/gpt-4o")
+```
+
+Custom model string format is the following:
+`"custom/{model_name}"`
+`provider_url` is required
+
+```python
+response_llm = client.call(agent.id, context, model = "custom/gpt-4o", provider_url = "your_model_url")
 ```
 
 ### Lamoom Keys
