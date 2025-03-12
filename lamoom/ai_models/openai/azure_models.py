@@ -49,7 +49,6 @@ class AzureAIModel(OpenAIModel):
         }
 
     def get_client(self, client_secrets: dict = {}):
-        print(f'Client secrets keys: {client_secrets.keys()}')
         realm_data = client_secrets.get(self.realm)
         if not realm_data:
             raise ValueError(f"Realm data for {self.realm} not found in client_secrets")
