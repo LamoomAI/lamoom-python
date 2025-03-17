@@ -36,28 +36,18 @@ Lamoom implements an efficient prompt caching system with a 5-minute TTL (Time-T
 - **Version Control**: Track prompt versions between local and server instances.
 
 
-```sequenceDiagram
-    Note over Lamoom,LLM: Process of lamoom.call(prompt_id, context, model)
-
+```mermaid
+sequenceDiagram
+    Note over Lamoom,LLM: call(prompt_id, context, model)
     Lamoom->>LibCache: get_prompt(prompt_id, version)
-    alt Prompt is in cache or RECEIVE_PROMPT_FROM_SERVER disabled
-        Lamoom-->>LibCache: Return cached prompt data
+    alt Cache hit
+        LibCache-->>Lamoom: Return cached prompt
+    else Cache miss
+        Lamoom->>LamoomService: POST /lib/prompts
+        Lamoom->>LibCache: Update cache (valid for 5 min)
     end
-    alt Cache miss or expired or new version of prompt is in the code
-        Lamoom->>LamoomService: POST /lib/prompts (with currently active prompt data)
-
-        Note right of LamoomService: Server checks if local prompt<br/>is the latest published version
-
-        LamoomService-->>Lamoom: Response with prompt data and is_taken_globally flag
-
-        Lamoom->>LibCache: Update cache with timestamp
-        Note right of LibCache: Cache will be valid for 5 minutes<br/>(CACHE_PROMPT_FOR_EACH_SECONDS)
-    end
-
-    Note over Lamoom, LLM: Continue with AI model calling
-
-    Lamoom-->>LLM: Call LLM w/ updated prompt and enriched context
-    LLM ->> Lamoom: LLMResponse
+    Lamoom->>LLM: Call with prompt and context
+    LLM->>Lamoom: LLMResponse
 ```
 
 ### Test Generation and CI/CD Integration
