@@ -39,11 +39,11 @@ Lamoom implements an efficient prompt caching system with a 5-minute TTL (Time-T
 ```mermaid
 sequenceDiagram
     Note over Lamoom,LLM: call(prompt_id, context, model)
-    Lamoom->>LibCache: get_cashed_prompt(prompt_id, version)
+    Lamoom->>LibCache: get_cashed_prompt(prompt_id)
     alt Cache miss
-        Lamoom->>LamoomService: POST /lib/prompts, Update cache (valid for 5 min)
+        Lamoom->>LamoomService: get_actual_prompt(prompt_id), Updates cache for 5 mins
     end
-    Lamoom->>LLM: Call with prompt and context
+    Lamoom->>LLM: Cal LLM with prompt and context
     LLM->>Lamoom: LLMResponse
 ```
 
