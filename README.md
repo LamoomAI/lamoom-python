@@ -57,7 +57,16 @@ Lamoom supports two methods for test creation:
 
 Tests automatically compare LLM responses to ideal answers, helping maintain prompt quality as models or prompts evolve.
 
-![Test Creation Flow](docs/sequence_diagrams/pngs/lamoom_test_creation.png)
+```mermaid
+sequenceDiagram
+    alt Direct
+      Lamoom->>LamoomService: create_test(prompt_id, context, ideal_answer)
+    end
+    alt Via call
+      Lamoom->>SaveWorker: call → add_task(test_data)
+      SaveWorker->>LamoomService: create_test_with_ideal_answer
+    end
+```
 
 ### Logging and Analytics
 Interaction logging happens asynchronously using a worker pattern:
@@ -65,14 +74,25 @@ Interaction logging happens asynchronously using a worker pattern:
 - **Complete Context**: Store the full prompt, context, and response for analysis.
 - **Non-Blocking**: Logging happens in the background without impacting response times.
 
-![Logging Flow](docs/sequence_diagrams/pngs/lamoom_save_user_interactions.png)
+```mermaid
+sequenceDiagram
+    Lamoom->>Lamoom: call(prompt_id, context, model)
+    Lamoom->>SaveWorker: add_task(api_token, prompt_data, context, result)
+    SaveWorker->>LamoomService: save_user_interaction()
+    Lamoom-->>Lamoom: Return AIResponse
+```
 
 ### Feedback Collection
 Improve prompt quality through explicit feedback:
 - **Ideal Answer Addition**: Associate ideal answers with previous responses using `add_ideal_answer()`.
 - **Continuous Improvement**: Use feedback to automatically generate new tests and refine prompts.
 
-![Feedback Flow](docs/sequence_diagrams/pngs/lamoom_add_ideal_answer.png)
+```mermaid
+sequenceDiagram
+    Lamoom->>Lamoom: add_ideal_answer(response_id, ideal_answer)
+    Lamoom->>LamoomService: update_response_ideal_answer()
+    LamoomService-->>Lamoom: Return result
+```
 
 ## Installation
 
