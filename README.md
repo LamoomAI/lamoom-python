@@ -35,7 +35,7 @@ Lamoom implements an efficient prompt caching system with a 5-minute TTL (Time-T
 - **Local Fallback**: If the LamoomService is unavailable, Lamoom library falls back to the locally defined prompt.
 - **Version Control**: Track prompt versions between local and server instances.
 
-```
+
 sequenceDiagram
     Note over Lamoom,LLM: Process of lamoom.call(prompt_id, context, model)
 
@@ -58,7 +58,7 @@ sequenceDiagram
 
     Lamoom-->>LLM: Call LLM w/ updated prompt and enriched context
     LLM ->> Lamoom: LLMResponse
-```
+
 
 ### Test Generation and CI/CD Integration
 Lamoom supports two methods for test creation:
