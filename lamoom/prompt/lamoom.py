@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 import requests
 import time
+import json
 from lamoom.settings import LAMOOM_API_URI
 from lamoom import Secrets, settings    
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
@@ -25,7 +26,7 @@ from lamoom.prompt.user_prompt import UserPrompt
 from lamoom.responses import AIResponse
 from lamoom.services.lamoom import LamoomService
 from lamoom.utils import current_timestamp_ms
-import json
+from lamoom.validators import Validator
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +274,95 @@ class Lamoom:
             "Prompt call failed, no attempts worked"
         )
         raise Exception
+    
+
+    def call_with_validate(
+        self,
+        prompt_id: str,
+        context: t.Dict[str, str],
+        model: str,
+        params: t.Dict[str, t.Any] = {},
+        version: str = None,
+        count_of_retries: int = 5,
+        test_data: dict = {},
+        stream_function: t.Callable = None,
+        check_connection: t.Callable = None,
+        stream_params: dict = {},
+        validators: t.Optional[t.List[Validator]] = None
+    ) -> t.List[AIResponse]:
+
+        if validators is None:
+            validators = []
+            max_attempts = 1
+        else:
+            max_attempts = 0
+            for validator in validators:
+                max_attempts += min(sum(map(int, validator.retry_rules.values())), validator.retry)
+
+        total_results: t.List[AIResponse] = []
+        total_errors: t.List[dict] = []
+
+        for iteration in range(max_attempts):
+            result = None
+            try:
+                result = self.call(
+                    prompt_id=prompt_id,
+                    context=context,
+                    model=model,
+                    params=params,
+                    version=version,
+                    count_of_retries=count_of_retries,
+                    test_data=test_data,
+                    stream_function=stream_function,
+                    check_connection=check_connection,
+                    stream_params=stream_params
+                )
+            except Exception as e:
+                logger.error(f"Attempt {iteration + 1} failed with error: {str(e)}")
+                if result is None:
+                    result = AIResponse()
+                result.errors = [{
+                    "iteration": iteration,
+                    "error": str(e)
+                }]
+                break
+            
+            validation_failed = False
+            can_retry = False
+
+            validation_errors = []
+            for validator in validators:
+                validator.validate(result)
+                if validator.has_errors():
+                    validation_failed = True
+                    for error in validator.get_errors():
+                        validation_errors.append({
+                            "iteration": iteration,
+                            "error": validator.format_error(error)
+                        })
+                    if validator.can_retry():
+                        can_retry = True
+                    else:
+                        total_errors.extend(validation_errors)
+                    break
+
+            result.errors = validation_errors if validation_errors else None
+            total_results.append(result)
+
+            if validation_failed:
+                if can_retry and iteration < max_attempts - 1:
+                    logger.info(f"Validation errors occurred, retrying (attempt {iteration + 1}/{max_attempts})")
+                    continue
+                else:
+                    error_messages = [e["error"] for e in validation_errors[-len(validators):]]
+                    logger.error(f"Validation failed: {', '.join(error_messages)}")
+                    raise ValueError(", ".join(error_messages))
+            else:
+                return total_results
+            
+        logger.error("All attempts failed")
+        raise Exception("All attempts failed. Errors: " + ", ".join([e["error"] for e in total_errors]))
+
 
     def get_prompt(self, prompt_id: str, version: str = None) -> Prompt:
         """

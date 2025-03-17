@@ -3,7 +3,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 import typing as t
-
+from lamoom.exceptions import LamoomError
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +34,7 @@ class AIResponse:
     prompt: Prompt = field(default_factory=Prompt)
     metrics: Metrics = field(default_factory=Metrics)
     id: str = ""
+    errors: t.Optional[t.List[LamoomError]] = None
 
     @property
     def response(self) -> str:
