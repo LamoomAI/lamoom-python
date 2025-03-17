@@ -13,6 +13,7 @@ class AI_MODELS_PROVIDER(Enum):
     CLAUDE = "claude"
     GEMINI = "gemini"
     NEBIUS = "nebius"
+    CUSTOM = "custom"
 
 
 @dataclass(kw_only=True)

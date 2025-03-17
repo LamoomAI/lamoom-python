@@ -43,6 +43,7 @@ class OpenAIModel(AIModel):
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.OPENAI
     family: str = None
     max_sample_budget: int = C_4K
+    base_url: str = None
 
     def __str__(self) -> str:
         return f"openai-{self.model}-{self.family}"
@@ -82,6 +83,7 @@ class OpenAIModel(AIModel):
             "model": self.model,
             "family": self.family,
             "provider": self.provider.value,
+            "base_url": self.get_base_url() if self.base_url is None else self.base_url
         }
 
     def call(
@@ -118,7 +120,7 @@ class OpenAIModel(AIModel):
         return OpenAI(
             organization=client_secrets.get("organization", None),
             api_key=client_secrets["api_key"],
-            base_url=self.get_base_url()
+            base_url=self.get_base_url() if self.base_url is None else self.base_url
         )
 
     def call_chat_completion(
