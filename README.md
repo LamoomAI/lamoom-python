@@ -41,7 +41,7 @@ sequenceDiagram
     Note over Lamoom,LLM: call(prompt_id, context, model)
     Lamoom->>Lamoom: get_cashed_prompt(prompt_id)
     alt Cache miss
-        Lamoom->>LamoomService: get_actual_prompt(prompt_id), Updates cache for 5 mins
+        Lamoom->>LamoomService: get the last published prompt, Updates cache for 5 mins
     end
     Lamoom->>LLM: Cal LLM with prompt and context
     LLM->>Lamoom: LLMResponse
@@ -56,12 +56,11 @@ Tests automatically compare LLM responses to ideal answers, helping maintain pro
 
 ```mermaid
 sequenceDiagram
-    alt Direct
+    alt Direct `create_test`
       Lamoom->>LamoomService: create_test(prompt_id, context, ideal_answer)
     end
-    alt Via call
-      Lamoom->>SaveWorker: call → add_task(test_data)
-      SaveWorker->>LamoomService: create_test_with_ideal_answer
+    alt Via `call`
+      Lamoom->>LamoomService: call → creating asynchronous job to create test with an idealanswer
     end
 ```
 
@@ -74,9 +73,7 @@ Interaction logging happens asynchronously using a worker pattern:
 ```mermaid
 sequenceDiagram
     Lamoom->>Lamoom: call(prompt_id, context, model)
-    Lamoom->>SaveWorker: add_task(api_token, prompt_data, context, result)
-    SaveWorker->>LamoomService: save_user_interaction()
-    Lamoom-->>Lamoom: Return AIResponse
+    Lamoom->>LamoomService: creating aasynchronous job to save logs
 ```
 
 ### Feedback Collection
@@ -86,9 +83,7 @@ Improve prompt quality through explicit feedback:
 
 ```mermaid
 sequenceDiagram
-    Lamoom->>Lamoom: add_ideal_answer(response_id, ideal_answer)
-    Lamoom->>LamoomService: update_response_ideal_answer()
-    LamoomService-->>Lamoom: Return result
+    Lamoom->>LamoomService: add_ideal_answer(response_id, ideal_answer)
 ```
 
 ## Installation
