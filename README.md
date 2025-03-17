@@ -44,7 +44,6 @@ sequenceDiagram
         Lamoom->>LamoomService: get the last published prompt, Updates cache for 5 mins
     end
     Lamoom->>LLM: Cal LLM with prompt and context
-    LLM->>Lamoom: LLMResponse
 ```
 
 ### Test Generation and CI/CD Integration
