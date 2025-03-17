@@ -59,7 +59,7 @@ sequenceDiagram
       Lamoom->>LamoomService: create_test(prompt_id, context, ideal_answer)
     end
     alt Via `call`
-      Lamoom->>LamoomService: call → creating asynchronous job to create test with an idealanswer
+      Lamoom->>LamoomService: call → creates asynchronous job to create test with an ideal answer
     end
 ```
 
@@ -72,7 +72,7 @@ Interaction logging happens asynchronously using a worker pattern:
 ```mermaid
 sequenceDiagram
     Lamoom->>Lamoom: call(prompt_id, context, model)
-    Lamoom->>LamoomService: creating aasynchronous job to save logs
+    Lamoom->>LamoomService: creates asynchronous job to save logs
 ```
 
 ### Feedback Collection
