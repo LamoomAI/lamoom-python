@@ -3,10 +3,10 @@ import pytest
 from lamoom import JSONValidator, XMLValidator, YAMLValidator
 from lamoom import AIResponse
 
-json_format = {
+format = {
+    "validator_id": "test_validator",
     "validator_type": "json",
     "schema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "required": ["statements", "questions", "name"],
         "properties": {
@@ -29,9 +29,14 @@ json_format = {
     }
 }
 
+prompt_id = "Statements and Questions"
+shema = format["schema"]
+retry_count = format["retry"]
+retry_rules = format["retry_rules"]
+
 @pytest.fixture
 def json_validator():
-    validator = JSONValidator(validation_format=json_format)
+    validator = JSONValidator(prompt_id, "test_json", shema, retry_count, retry_rules)
     return validator
 
 def test_valid_json(json_validator):
@@ -39,7 +44,8 @@ def test_valid_json(json_validator):
 {
     "statements": ["Statement 1", "Statement 2"],
     "questions": ["Question 1", "Question 2"],
-    "name": "Test Name"
+    "name": "Test Name",
+    "extra_field": "Extra value"
 }
 ```
 """)
@@ -90,36 +96,9 @@ def test_no_json_content(json_validator):
     assert len(json_validator.get_errors()) == 1
     assert json_validator.get_errors()[0]['type'] == "invalid_structure" 
 
-
-xml_format = {
-    "validator_type": "xml",
-    "schema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "object",
-        "required": ["statements", "questions", "name"],
-        "properties": {
-            "name": {"type": "string"},
-            "statements": {
-                "type": "array",
-                "items": {"type": "string"}
-            },
-            "questions": {
-                "type": "array",
-                "items": {"type": "string"}
-            }
-        }
-    },
-    "retry": 3,
-    "retry_rules": {
-        "invalid_structure": 2,
-        "missing_field": 2,
-        "invalid_type": 1
-    }
-}
-
 @pytest.fixture
 def xml_validator():
-    validator = XMLValidator(validation_format=xml_format)
+    validator = XMLValidator(prompt_id, "test_xml", shema, retry_count, retry_rules)
     return validator
 
 def test_valid_xml(xml_validator):
@@ -197,35 +176,9 @@ def test_no_xml_content(xml_validator):
     assert xml_validator.get_errors()[0]['type'] == "invalid_structure"
 
 
-yaml_format = {
-    "validator_type": "yaml",
-    "schema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "object",
-        "required": ["statements", "questions", "name"],
-        "properties": {
-            "name": {"type": "string"},
-            "statements": {
-                "type": "array",
-                "items": {"type": "string"}
-            },
-            "questions": {
-                "type": "array",
-                "items": {"type": "string"}
-            }
-        }
-    },
-    "retry": 3,
-    "retry_rules": {
-        "invalid_structure": 2,
-        "missing_field": 2,
-        "invalid_type": 1
-    }
-}
-
 @pytest.fixture
 def yaml_validator():
-    validator = YAMLValidator(validation_format=yaml_format)
+    validator = YAMLValidator(prompt_id, "test_yaml", shema, retry_count, retry_rules)
     return validator
 
 def test_valid_yaml(yaml_validator):

@@ -5,7 +5,7 @@ from decimal import Decimal
 import requests
 import time
 import json
-from lamoom.settings import LAMOOM_API_URI
+from lamoom.settings import LAMOOM_API_URI, PROMPT_VALIDATORS
 from lamoom import Secrets, settings    
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
 from lamoom.ai_models.attempt_to_call import AttemptToCall
@@ -17,7 +17,8 @@ from lamoom.ai_models.constants import C_16K
 
 from lamoom.exceptions import (
     LamoomPromptIsnotFoundError,
-    RetryableCustomError
+    RetryableCustomError,
+    ValidatorException
 )
 from lamoom.services.SaveWorker import SaveWorker
 from lamoom.prompt.prompt import Prompt
@@ -27,7 +28,6 @@ from lamoom.responses import AIResponse
 from lamoom.services.lamoom import LamoomService
 from lamoom.utils import current_timestamp_ms
 from lamoom.validators import Validator
-
 logger = logging.getLogger(__name__)
 
 
@@ -313,7 +313,7 @@ class Lamoom:
         raise Exception
     
 
-    def call_with_validate(
+    def call_and_validate(
         self,
         prompt_id: str,
         context: t.Dict[str, str],
@@ -325,14 +325,15 @@ class Lamoom:
         stream_function: t.Callable = None,
         check_connection: t.Callable = None,
         stream_params: dict = {},
-        validators: t.Optional[t.List[Validator]] = None
     ) -> t.List[AIResponse]:
 
+        validators = PROMPT_VALIDATORS.get(prompt_id)
         if validators is None:
             validators = []
             max_attempts = 1
         else:
             max_attempts = 0
+            validators = validators.values()
             for validator in validators:
                 max_attempts += min(sum(map(int, validator.retry_rules.values())), validator.retry)
 
@@ -374,6 +375,7 @@ class Lamoom:
                     validation_failed = True
                     for error in validator.get_errors():
                         validation_errors.append({
+                            "id": validator.id,
                             "iteration": iteration,
                             "error": validator.format_error(error)
                         })
@@ -393,7 +395,7 @@ class Lamoom:
                 else:
                     error_messages = [e["error"] for e in validation_errors[-len(validators):]]
                     logger.error(f"Validation failed: {', '.join(error_messages)}")
-                    raise ValueError(", ".join(error_messages))
+                    raise ValidatorException()
             else:
                 return total_results
             
