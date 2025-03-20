@@ -313,16 +313,20 @@ def client():
     base_retry_rules = base_format["retry_rules"]
     base_validator_id = base_format["validator_id"]
 
-    json_validator = JSONValidator(json_agent.id, base_validator_id, base_shema, base_retry_count, base_retry_rules)
-    xml_validator = XMLValidator(xml_agent.id, base_validator_id, base_shema, base_retry_count, base_retry_rules)
-    yaml_validator = YAMLValidator(yaml_agent.id, base_validator_id, base_shema, base_retry_count, base_retry_rules)
+    json_validator = JSONValidator(base_validator_id, base_shema, base_retry_count, base_retry_rules)
+    xml_validator = XMLValidator(base_validator_id, base_shema, base_retry_count, base_retry_rules)
+    yaml_validator = YAMLValidator(base_validator_id, base_shema, base_retry_count, base_retry_rules)
+    json_validator.attach_to_promt(json_agent.id)
+    xml_validator.attach_to_promt(xml_agent.id)
+    yaml_validator.attach_to_promt(yaml_agent.id)
 
     extra_shema = extra_format["schema"]
     extra_retry_count = extra_format["retry"]
     extra_retry_rules = extra_format["retry_rules"]
     extra_validator_id = extra_format["validator_id"]
-    extra_json_validator = JSONValidator(extra_json_agent.id, extra_validator_id, extra_shema, extra_retry_count, extra_retry_rules)
-
+    extra_json_validator = JSONValidator(extra_validator_id, extra_shema, extra_retry_count, extra_retry_rules)
+    extra_json_validator.attach_to_promt(extra_json_agent.id)
+    
     dotenv.load_dotenv('./.env')
     openai_key = os.getenv("OPENAI_API_KEY")
     lamoom = Lamoom(openai_key=openai_key)

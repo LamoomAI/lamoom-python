@@ -327,12 +327,11 @@ class Lamoom:
         stream_params: dict = {},
     ) -> t.List[AIResponse]:
 
+        max_attempts = 1
         validators = PROMPT_VALIDATORS.get(prompt_id)
         if validators is None:
             validators = []
-            max_attempts = 1
         else:
-            max_attempts = 0
             validators = validators.values()
             for validator in validators:
                 max_attempts += min(sum(map(int, validator.retry_rules.values())), validator.retry)

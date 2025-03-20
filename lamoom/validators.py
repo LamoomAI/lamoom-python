@@ -8,28 +8,60 @@ from lamoom.settings import PROMPT_VALIDATORS
 from lamoom import AIResponse
 
 class Validator(ABC):
-    def __init__(self, prompt_id: str, validator_id: str, validator_type: str, shema: t.Dict, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
-        self.prompt_id = prompt_id
+    def __init__(self, validator_id: str, validator_type: str, schema: t.Dict = None, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
         self.id = validator_id
         self.type = validator_type
-        self.schema = shema 
+        if schema:
+            self.schema = schema
+        else:
+            self.schema = {}
         self.retry = retry_count
         if retry_rules:
             self.retry_rules = retry_rules
         else:
             self.retry_rules = {}
         self.errors = []
-        self._save_in_local_storage()
-
-    def _save_in_local_storage(self):
-        if self.prompt_id in PROMPT_VALIDATORS:
-            PROMPT_VALIDATORS[self.prompt_id][self.id] = self
-        else:
-            PROMPT_VALIDATORS[self.prompt_id] = {self.id: self}
 
     @abstractmethod
     def validate(self, response: str) -> None:
         pass
+
+    def add_field_to_validate(self, field: str, field_type: t.Optional[t.Union[str, t.Dict]], **kwargs) -> None:
+
+        field_type_str = isinstance(field_type, str)
+        field_type_dict = isinstance(field_type, dict)
+        if self.schema:
+            if field not in self.schema["required"]:
+                self.schema["required"].append(field)
+            if field_type_str:
+                self.schema["properties"][field] = {"type": field_type}
+            elif field_type_dict:
+                self.schema["properties"][field] = field_type
+        else:
+            self.schema = {
+                "type": "object",
+                "required": [field],
+            }
+            if field_type_str:
+                self.schema["properties"] = {
+                    field: {
+                        "type": field_type
+                    }
+                }
+            elif field_type_dict:
+                self.schema["properties"] = {
+                    field: field_type
+                }
+        if field_type_str:
+            for key, value in kwargs.items():
+                self.schema["properties"][field][key] = value
+
+
+    def attach_to_promt(self, prompt_id: str) -> None:
+        if prompt_id in PROMPT_VALIDATORS:
+            PROMPT_VALIDATORS[prompt_id][self.id] = self
+        else:
+            PROMPT_VALIDATORS[prompt_id] = {self.id: self}
 
     def clear_errors(self) -> None:
         self.errors = []
@@ -83,14 +115,12 @@ class FormatValidator(Validator):
     def validate(self, json_data: t.Dict):
         try:
             jsonschema.validate(instance=json_data, schema=self.schema)
-        except json.JSONDecodeError as e:
-            self.add_error({
-                "type": "invalid_structure",
-                "details": f"Invalid JSON format at line {e.lineno}: {e.msg}"
-            })
         except jsonschema.ValidationError as e:
-            path = list(e.path) 
-            error_location = " -> ".join(map(str, path))
+            path = list(e.path)
+            if path:
+                error_location = " -> ".join(map(str, path))
+            else:
+                error_location = "/"
             if e.validator == "required":
 
                 available_fields = list(json_data.keys())
@@ -133,8 +163,8 @@ class FormatValidator(Validator):
             })
     
 class JSONValidator(FormatValidator):
-    def __init__(self, prompt_id: str, validator_id: str, shema: t.Dict, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
-        super().__init__(prompt_id, validator_id, "json", shema, retry_count, retry_rules)
+    def __init__(self, validator_id: str, schema: t.Dict = None, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
+        super().__init__(validator_id, "json", schema, retry_count, retry_rules)
 
     def validate(self, response: AIResponse):
         json_list = response.json_list
@@ -160,8 +190,8 @@ class JSONValidator(FormatValidator):
 
 
 class YAMLValidator(FormatValidator):
-    def __init__(self, prompt_id: str, validator_id: str, shema: t.Dict, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
-        super().__init__(prompt_id, validator_id, "yaml", shema, retry_count, retry_rules)
+    def __init__(self, validator_id: str, schema: t.Dict = None, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
+        super().__init__(validator_id, "yaml", schema, retry_count, retry_rules)
 
     def validate(self, response: AIResponse):
         yaml_list = response.yaml_list
@@ -195,8 +225,8 @@ class YAMLValidator(FormatValidator):
 
 
 class XMLValidator(FormatValidator):
-    def __init__(self, prompt_id: str, validator_id: str, shema: t.Dict, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
-        super().__init__(prompt_id, validator_id, "xml", shema, retry_count, retry_rules)
+    def __init__(self, validator_id: str, schema: t.Dict = None, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
+        super().__init__(validator_id, "xml", schema, retry_count, retry_rules)
 
     def validate(self, response: AIResponse):
         xml_list = response.xml_list
