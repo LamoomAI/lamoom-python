@@ -11,3 +11,7 @@ dist
 .pytest_cache
 python
 .env.test
+test.py
+test2.py
+main.py
+lamoom_venv/

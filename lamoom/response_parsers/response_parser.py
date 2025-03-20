@@ -5,17 +5,9 @@ import logging
 import yaml
 
 from lamoom.exceptions import NotParsedResponseException
-from lamoom.responses import AIResponse
+from lamoom.responses import AIResponse, Tag
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Tag:
-    start_tag: str
-    end_tag: str
-    include_tag: bool
-    is_right_find_end_ind: bool = False
 
 
 @dataclass
