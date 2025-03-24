@@ -100,7 +100,7 @@ class Lamoom:
         self.worker = SaveWorker()
 
     def create_test(
-        self, prompt_id: str, test_context: t.Dict[str, str], ideal_answer: str = None, model_name: str = None
+        self, prompt_id: str, context: t.Dict[str, str], ideal_answer: str = None, model_name: str = None
     ):
         """
         Create new test
@@ -108,14 +108,14 @@ class Lamoom:
 
         url = f"{LAMOOM_API_URI}/lib/tests?createTest"
         headers = {"Authorization": f"Token {self.api_token}"}
-        if "ideal_answer" in test_context:
-            ideal_answer = test_context["ideal_answer"]
+        if "ideal_answer" in context:
+            ideal_answer = context["ideal_answer"]
 
         data = {
             "prompt_id": prompt_id,
             "ideal_answer": ideal_answer,
             "model_name": model_name,
-            "test_context": test_context,
+            "test_context": context,
         }
         json_data = json.dumps(data)
         response = requests.post(url, headers=headers, data=json_data)
