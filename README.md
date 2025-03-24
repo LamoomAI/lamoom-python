@@ -35,7 +35,16 @@ Lamoom implements an efficient prompt caching system with a 5-minute TTL (Time-T
 - **Local Fallback**: If the LamoomService is unavailable, Lamoom library falls back to the locally defined prompt.
 - **Version Control**: Track prompt versions between local and server instances.
 
-![Lamoom Call Flow](docs/sequence_diagrams/pngs/lamoom_call.png)
+
+```mermaid
+sequenceDiagram
+    Note over Lamoom,LLM: call(prompt_id, context, model)
+    Lamoom->>Lamoom: get_cashed_prompt(prompt_id)
+    alt Cache miss
+        Lamoom->>LamoomService: get the last published prompt, Updates cache for 5 mins
+    end
+    Lamoom->>LLM: Cal LLM with prompt and context
+```
 
 ### Test Generation and CI/CD Integration
 Lamoom supports two methods for test creation:
@@ -44,7 +53,15 @@ Lamoom supports two methods for test creation:
 
 Tests automatically compare LLM responses to ideal answers, helping maintain prompt quality as models or prompts evolve.
 
-![Test Creation Flow](docs/sequence_diagrams/pngs/lamoom_test_creation.png)
+```mermaid
+sequenceDiagram
+    alt Direct `create_test`
+      Lamoom->>LamoomService: create_test(prompt_id, context, ideal_answer)
+    end
+    alt Via `call`
+      Lamoom->>LamoomService: call → creates asynchronous job to create test with an ideal answer
+    end
+```
 
 ### Logging and Analytics
 Interaction logging happens asynchronously using a worker pattern:
@@ -52,14 +69,21 @@ Interaction logging happens asynchronously using a worker pattern:
 - **Complete Context**: Store the full prompt, context, and response for analysis.
 - **Non-Blocking**: Logging happens in the background without impacting response times.
 
-![Logging Flow](docs/sequence_diagrams/pngs/lamoom_save_user_interactions.png)
+```mermaid
+sequenceDiagram
+    Lamoom->>Lamoom: call(prompt_id, context, model)
+    Lamoom->>LamoomService: creates asynchronous job to save logs
+```
 
 ### Feedback Collection
 Improve prompt quality through explicit feedback:
 - **Ideal Answer Addition**: Associate ideal answers with previous responses using `add_ideal_answer()`.
 - **Continuous Improvement**: Use feedback to automatically generate new tests and refine prompts.
 
-![Feedback Flow](docs/sequence_diagrams/pngs/lamoom_add_ideal_answer.png)
+```mermaid
+sequenceDiagram
+    Lamoom->>LamoomService: add_ideal_answer(response_id, ideal_answer)
+```
 
 ## Installation
 
@@ -162,8 +186,8 @@ response = client.call(prompt.id, context, "openai/gpt-4o", test_data={
 ```python
 # Create a test directly
 client.create_test(
-    prompt_id="greet_user",
-    test_context={"name": "John Doe"},
+    prompt.id,
+    context,
     ideal_answer="Hello, I'm John Doe. What's your name?",
     model_name="gemini/gemini-1.5-flash"
 )
@@ -173,7 +197,7 @@ client.create_test(
 ```python
 # Add an ideal answer to a previous response for quality assessment
 client.add_ideal_answer(
-    response_id="greet_user#1620000000000",
+    response_id=response.id,
     ideal_answer="Hello, I'm John Doe. What's your name?"
 )
 ```
