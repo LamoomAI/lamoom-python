@@ -32,6 +32,7 @@ class Tag:
     include_tag: bool
     is_right_find_end_ind: bool = False
 
+
 @dataclass(kw_only=True)
 class AIResponse:
     _response: str = ""
@@ -42,6 +43,7 @@ class AIResponse:
     metrics: Metrics = field(default_factory=Metrics)
     id: str = ""
     errors: t.Optional[t.List[LamoomError]] = None
+    attemps: t.Optional[t.List] = None
 
     @property
     def response(self) -> str:

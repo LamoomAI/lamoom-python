@@ -333,41 +333,41 @@ def client():
     return lamoom
 
 def test_json(client: Lamoom):
-    response = client.call_and_validate(
+    response = client.call(
         json_agent.id,             
         {},              
         'openai/o3-mini',
     )
-    assert not response[-1].errors
+    assert not response.errors
 
 def test_xml(client: Lamoom):
-    response = client.call_and_validate(
+    response = client.call(
         xml_agent.id,             
         {},              
         'openai/o3-mini',
     )
-    assert not response[-1].errors
+    assert not response.errors
 
 def test_yaml(client: Lamoom):
-    response = client.call_and_validate(
+    response = client.call(
         yaml_agent.id,             
         {},              
         'openai/o3-mini',
     )
-    assert not response[-1].errors
+    assert not response.errors
 
 def test_extra_json(client: Lamoom):
-    response = client.call_and_validate(
+    response = client.call(
         extra_json_agent.id,             
         {},              
         'openai/o3-mini',
     )
-    assert not response[-1].errors
+    assert not response.errors
 
 def test_two_json(client: Lamoom):
-    response = client.call_and_validate(
+    response = client.call(
         two_json_agent.id,             
         {},              
         'openai/o3-mini',
     )
-    assert not response[-1].errors
+    assert not response.errors

@@ -221,7 +221,7 @@ class Lamoom:
             fallback_attempts=fallback_attempts
         )
         
-    def call(
+    def call_llm(
         self,
         prompt_id: str,
         context: t.Dict[str, str],
@@ -313,11 +313,12 @@ class Lamoom:
         raise Exception
     
 
-    def call_and_validate(
+    def call(
         self,
         prompt_id: str,
         context: t.Dict[str, str],
         model: str,
+        provider_url: str = None,
         params: t.Dict[str, t.Any] = {},
         version: str = None,
         count_of_retries: int = 5,
@@ -325,7 +326,7 @@ class Lamoom:
         stream_function: t.Callable = None,
         check_connection: t.Callable = None,
         stream_params: dict = {},
-    ) -> t.List[AIResponse]:
+    ) -> AIResponse:
 
         max_attempts = 1
         validators = PROMPT_VALIDATORS.get(prompt_id)
@@ -342,10 +343,11 @@ class Lamoom:
         for iteration in range(max_attempts):
             result = None
             try:
-                result = self.call(
+                result = self.call_llm(
                     prompt_id=prompt_id,
                     context=context,
                     model=model,
+                    provider_url=provider_url,
                     params=params,
                     version=version,
                     count_of_retries=count_of_retries,
@@ -396,7 +398,8 @@ class Lamoom:
                     logger.error(f"Validation failed: {', '.join(error_messages)}")
                     raise ValidatorException()
             else:
-                return total_results
+                total_results[-1].attemps = total_results[:-1]
+                return total_results[-1]
             
         logger.error("All attempts failed")
         raise Exception("All attempts failed. Errors: " + ", ".join([e["error"] for e in total_errors]))

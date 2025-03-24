@@ -7,6 +7,7 @@ import xmltodict
 from lamoom.settings import PROMPT_VALIDATORS
 from lamoom import AIResponse
 
+
 class Validator(ABC):
     def __init__(self, validator_id: str, validator_type: str, schema: t.Dict = None, retry_count: int = 0, retry_rules: t.Optional[t.Dict]= None):
         self.id = validator_id
@@ -21,6 +22,7 @@ class Validator(ABC):
         else:
             self.retry_rules = {}
         self.errors = []
+        self.prompt_id = None
 
     @abstractmethod
     def validate(self, response: str) -> None:
@@ -56,8 +58,8 @@ class Validator(ABC):
             for key, value in kwargs.items():
                 self.schema["properties"][field][key] = value
 
-
     def attach_to_promt(self, prompt_id: str) -> None:
+        self.prompt_id = prompt_id
         if prompt_id in PROMPT_VALIDATORS:
             PROMPT_VALIDATORS[prompt_id][self.id] = self
         else:
@@ -75,7 +77,7 @@ class Validator(ABC):
     def add_error(self, error: t.Dict):
         self.errors.append(error)
 
-    def update_format(self, validator_type:str, validation_format: t.Dict):
+    def update_format(self, validator_type: str, validation_format: t.Dict):
         self.__init__(validator_type, validation_format)
 
     def can_retry(self) -> bool:
@@ -85,6 +87,30 @@ class Validator(ABC):
                 self.retry_rules[error_type] -= 1
                 return True
         return False
+    
+    def dump(self) -> dict:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "schema": self.schema,
+            "retry": self.retry,
+            "retry_rules": self.retry_rules,
+            "errors": self.errors,
+            "prompt_id": self.prompt_id,
+        }
+
+    @classmethod
+    def load(cls, data: dict) -> 'Validator':
+        instance = cls(
+            validator_id=data["id"],
+            schema=data.get("schema"),
+            retry_count=data.get("retry", 0),
+            retry_rules=data.get("retry_rules"),
+        )
+        instance.type = data["type"]
+        instance.errors = data.get("errors", [])
+        instance.prompt_id = data.get("prompt_id")
+        return instance
 
     def format_error(self, error: t.Dict) -> str:
         """Format the error into a human-readable string."""
