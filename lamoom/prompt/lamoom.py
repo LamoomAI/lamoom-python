@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 import requests
 import time
-from lamoom.settings import LAMOOM_API_URI
+import json
+from lamoom.settings import LAMOOM_API_URI, PROMPT_VALIDATORS
 from lamoom import Secrets, settings    
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
 from lamoom.ai_models.attempt_to_call import AttemptToCall
@@ -16,7 +17,8 @@ from lamoom.ai_models.constants import C_16K
 
 from lamoom.exceptions import (
     LamoomPromptIsnotFoundError,
-    RetryableCustomError
+    RetryableCustomError,
+    ValidatorException
 )
 from lamoom.services.SaveWorker import SaveWorker
 from lamoom.prompt.prompt import Prompt
@@ -25,8 +27,7 @@ from lamoom.prompt.user_prompt import UserPrompt
 from lamoom.responses import AIResponse
 from lamoom.services.lamoom import LamoomService
 from lamoom.utils import current_timestamp_ms
-import json
-
+from lamoom.validators import Validator
 logger = logging.getLogger(__name__)
 
 
@@ -220,7 +221,7 @@ class Lamoom:
             fallback_attempts=fallback_attempts
         )
         
-    def call(
+    def call_llm(
         self,
         prompt_id: str,
         context: t.Dict[str, str],
@@ -310,6 +311,99 @@ class Lamoom:
             "Prompt call failed, no attempts worked"
         )
         raise Exception
+    
+
+    def call(
+        self,
+        prompt_id: str,
+        context: t.Dict[str, str],
+        model: str,
+        provider_url: str = None,
+        params: t.Dict[str, t.Any] = {},
+        version: str = None,
+        count_of_retries: int = 5,
+        test_data: dict = {},
+        stream_function: t.Callable = None,
+        check_connection: t.Callable = None,
+        stream_params: dict = {},
+    ) -> AIResponse:
+
+        max_attempts = 1
+        validators = PROMPT_VALIDATORS.get(prompt_id)
+        if validators is None:
+            validators = []
+        else:
+            validators = validators.values()
+            for validator in validators:
+                max_attempts += min(sum(map(int, validator.retry_rules.values())), validator.retry)
+
+        total_results: t.List[AIResponse] = []
+        total_errors: t.List[dict] = []
+
+        for iteration in range(max_attempts):
+            result = None
+            try:
+                result = self.call_llm(
+                    prompt_id=prompt_id,
+                    context=context,
+                    model=model,
+                    provider_url=provider_url,
+                    params=params,
+                    version=version,
+                    count_of_retries=count_of_retries,
+                    test_data=test_data,
+                    stream_function=stream_function,
+                    check_connection=check_connection,
+                    stream_params=stream_params
+                )
+            except Exception as e:
+                logger.error(f"Attempt {iteration + 1} failed with error: {str(e)}")
+                if result is None:
+                    result = AIResponse()
+                result.errors = [{
+                    "iteration": iteration,
+                    "error": str(e)
+                }]
+                break
+            
+            validation_failed = False
+            can_retry = False
+
+            validation_errors = []
+            for validator in validators:
+                validator.validate(result)
+                if validator.has_errors():
+                    validation_failed = True
+                    for error in validator.get_errors():
+                        validation_errors.append({
+                            "id": validator.id,
+                            "iteration": iteration,
+                            "error": validator.format_error(error)
+                        })
+                    if validator.can_retry():
+                        can_retry = True
+                    else:
+                        total_errors.extend(validation_errors)
+                    break
+
+            result.errors = validation_errors if validation_errors else None
+            total_results.append(result)
+
+            if validation_failed:
+                if can_retry and iteration < max_attempts - 1:
+                    logger.info(f"Validation errors occurred, retrying (attempt {iteration + 1}/{max_attempts})")
+                    continue
+                else:
+                    error_messages = [e["error"] for e in validation_errors[-len(validators):]]
+                    logger.error(f"Validation failed: {', '.join(error_messages)}")
+                    raise ValidatorException()
+            else:
+                total_results[-1].attemps = total_results[:-1]
+                return total_results[-1]
+            
+        logger.error("All attempts failed")
+        raise Exception("All attempts failed. Errors: " + ", ".join([e["error"] for e in total_errors]))
+
 
     def get_prompt(self, prompt_id: str, version: str = None) -> Prompt:
         """

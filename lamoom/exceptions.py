@@ -39,3 +39,6 @@ class NotParsedResponseException(LamoomError):
 
 class APITokenNotProvided(LamoomError):
     pass
+
+class ValidatorException(LamoomError):
+    pass
