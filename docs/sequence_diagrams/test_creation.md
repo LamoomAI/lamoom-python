@@ -5,7 +5,7 @@
   note over Lamoom,LamoomService: Process of creating tests for CI/CD validation
 
     alt Test creation via create_test method
-      Lamoom->>LamoomService: create_test(prompt_id, context, ideal_answer)
+      Lamoom->>LamoomService: create_test(prompt_id, test_context, ideal_answer)
       note right of LamoomService: Server creates test with:\n- Prompt ID\n- Test context\n- Ideal answer
 
       LamoomService-->>Lamoom: Return create test result

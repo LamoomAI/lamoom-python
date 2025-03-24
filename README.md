@@ -186,8 +186,8 @@ response = client.call(prompt.id, context, "openai/gpt-4o", test_data={
 ```python
 # Create a test directly
 client.create_test(
-    prompt.id,
-    context,
+    prompt_id="greet_user",
+    test_context={"name": "John Doe"},
     ideal_answer="Hello, I'm John Doe. What's your name?",
     model_name="gemini/gemini-1.5-flash"
 )
@@ -197,7 +197,7 @@ client.create_test(
 ```python
 # Add an ideal answer to a previous response for quality assessment
 client.add_ideal_answer(
-    response_id=response.id,
+    response_id="greet_user#1620000000000",
     ideal_answer="Hello, I'm John Doe. What's your name?"
 )
 ```
