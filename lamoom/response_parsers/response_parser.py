@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from json_repair import repair_json
 import json
 import logging
 
@@ -43,7 +44,6 @@ def get_yaml_from_response(response: AIResponse):
             end_ind=end_ind,
         )
 
-
 def get_json_from_response(response: AIResponse, start_from: int = 0) -> TaggedContent:
     content, start_ind, end_ind = _get_format_from_response(
         response,
@@ -51,8 +51,12 @@ def get_json_from_response(response: AIResponse, start_from: int = 0) -> TaggedC
         start_from=start_from,
     )
     if content:
+
+        #### !
+        repaired_content = repair_json(content)
+
         try:
-            json_response = eval(content)
+            json_response = json.loads(repaired_content)
             return TaggedContent(
                 content=content,
                 parsed_content=json_response,
@@ -60,6 +64,9 @@ def get_json_from_response(response: AIResponse, start_from: int = 0) -> TaggedC
                 end_ind=end_ind,
             )
         except Exception as e:
+            # exception handling needs fix
+            # worst case scenario, repaired_content may return empty if, quote
+            # (gh: mangiucugna/json_repair) If the string was super broken this will return an empty string
             try:
                 json_response = json.loads(content)
                 return TaggedContent(
