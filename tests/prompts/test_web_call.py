@@ -32,8 +32,9 @@ def test_web_call(client):
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
     
-    result = client.call(prompt.id, context, "openai/gpt-4o", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
-    
+    # result = client.call(prompt.id, context, "openai/gpt-4o", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    result = client.call(prompt.id, context, "claude/claude-3-5-sonnet-20240620")
+
     with open('test_web_call.txt', 'w', encoding="utf-8") as f:
         f.write(result.content)
         

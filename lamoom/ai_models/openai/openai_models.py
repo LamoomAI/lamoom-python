@@ -526,8 +526,7 @@ class OpenAIStreamResponse(OpenAIResponse):
 
         # Return self instance with populated data (content, message, finish_reason)
         logger.debug(f"Stream processing complete. Final finish reason: {self.finish_reason}")
-        with open('kwargs_stream.txt', 'w', encoding="utf-8") as f:
-            f.write(str(new_call_kwargs))
+
         return self
 
     def process_message(self, text: str, idx: int):
