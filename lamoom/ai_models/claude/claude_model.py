@@ -3,7 +3,8 @@ import logging
 
 from lamoom.ai_models.constants import C_200K, C_4K
 from lamoom.responses import AIResponse
-from lamoom.ai_models.tools import ToolDefinition, AVAILABLE_TOOLS
+from lamoom.ai_models.tools import ToolDefinition, AVAILABLE_TOOLS_REGISTRY, inject_tool_prompts, parse_tool_call_block, \
+    format_tool_result_message
 from decimal import Decimal
 from enum import Enum
 import json
@@ -68,92 +69,15 @@ class ClaudeAIModel(AIModel):
             else:
                 result[-1]["content"] += message.get("content")
         return result
-    
-    def _format_tools_for_anthropic(self, tools: t.List[ToolDefinition]) -> t.List[t.Dict[str, t.Any]]:
-        """Converts generic ToolDefinition list to Anthropic's tool format."""
-        anthropic_tools = []
-        for tool_def in tools:
-            properties = {}
-            required_params = []
-            for param in tool_def.parameters:
-                param_type = "string" # Default
-                if param.type == "number": param_type = "number"
-                elif param.type == "boolean": param_type = "boolean"
-                elif param.type == "integer": param_type = "integer"
-                # Add other types ('array', 'object') if needed
-                properties[param.name] = {"type": param_type, "description": param.description}
-                if param.required: required_params.append(param.name)
-
-            anthropic_tools.append({
-                "name": tool_def.name,
-                "description": tool_def.description,
-                "input_schema": {"type": "object", "properties": properties, "required": required_params},
-            })
-        return anthropic_tools
-
-    def _execute_anthropic_tools(
-        self,
-        tool_use_blocks: t.List[ToolUseBlock], # Use the specific Anthropic type
-        tool_registry: t.Dict[str, ToolDefinition]
-        ) -> t.List[MessageParam]:
-        """Executes tools based on Anthropic's tool_use blocks and returns tool_result messages."""
-        tools_result_message = {"role": "user", "content": []}
-        tools_content = []
-        
-        for tool_use in tool_use_blocks:
-            # Ensure it's actually a tool_use block (safety check)
-            if not isinstance(tool_use, ToolUseBlock):
-                logger.warning(f"Skipping non-ToolUseBlock item in tool execution: {type(tool_use)}")
-                continue
-
-            tool_name = tool_use.name
-            tool_use_id = tool_use.id
-            tool_input = tool_use.input or {} # Input is already a dict
-            tool_result_content_str = "" # Result must be a string
-
-            logger.info(f"Attempting tool execution for '{tool_name}' (ID: {tool_use_id}) with input: {tool_input}")
-
-            tool_definition = tool_registry.get(tool_name)
-            if tool_definition and tool_definition.execution_function:
-                try:
-                    tool_result_content_str = tool_definition.execution_function(**tool_input)
-                    logger.info(f"Tool '{tool_name}' executed successfully. Result snippet: {tool_result_content_str[:200]}...")
-                    result_block = {
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_id,
-                        "content": tool_result_content_str
-                    }
-
-                except Exception as tool_exc:
-                    logger.exception(f"Error executing tool '{tool_name}'", exc_info=tool_exc)
-                    error_content = f"Execution of tool '{tool_name}' failed: {str(tool_exc)}"
-                    result_block = {
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_id,
-                        "content": error_content
-                    }
-            else:
-                logger.warning(f"Tool '{tool_name}' requested by model but not found in registry or not executable.")
-                error_content = f"Tool '{tool_name}' is not available or implemented."
-                result_block = {
-                    "type": "tool_result",
-                    "tool_use_id": tool_use_id,
-                    "content": error_content
-                }
-
-            # Append the result as a user message containing the tool_result block
-            tools_content.append(result_block)
-
-        tools_result_message['content'] = tools_content
-        return tools_result_message
 
 
     def call(self, 
-             messages: t.List[dict], 
-             max_tokens: int, 
-             client_secrets: dict = {}, 
-             available_tools: t.List[ToolDefinition] = AVAILABLE_TOOLS,
-             **kwargs) -> AIResponse:
+            messages: t.List[dict], 
+            max_tokens: int, 
+            client_secrets: dict = {}, 
+            tool_registry: t.Dict[str, ToolDefinition] = AVAILABLE_TOOLS_REGISTRY,
+            max_tool_iterations: int = 5,   # Safety limit for sequential calls
+            **kwargs) -> AIResponse:
         max_tokens = min(max_tokens, self.max_tokens)
         
         common_args = get_common_args(max_tokens)
@@ -163,9 +87,21 @@ class ClaudeAIModel(AIModel):
             **kwargs,
         }
         messages = self.uny_all_messages_with_same_role(messages)
-
+        
+        tool_definitions = []
+        for tool_definition in tool_registry.values():
+            tool_definitions.append(tool_definition)
+            
+        # Inject Tool Prompts into initial messages
+        current_messages_history = inject_tool_prompts(messages, tool_definitions)
+        
+        system_prompt = None
+        if current_messages_history and current_messages_history[0].get('role') == "system":
+            system_prompt = current_messages_history[0].get('content')
+            current_messages_history = current_messages_history[1:]
+            
         logger.debug(
-            f"Calling {messages} with max_tokens {max_tokens} and kwargs {kwargs}"
+            f"Calling {current_messages_history} with max_tokens {max_tokens} and kwargs {kwargs}"
         )
         client = self.get_client(client_secrets)
 
@@ -174,16 +110,6 @@ class ClaudeAIModel(AIModel):
         stream_params = kwargs.get("stream_params")
 
         content = ""
-        
-        tool_registry = {} # Dictionary to hold tool definitions for easy access
-        # Populate the tool registry with available tools
-        for tool in available_tools:
-            tool_registry[tool.name] = tool
-        
-        anthropic_formatted_tools = []
-        if available_tools:
-            anthropic_formatted_tools = self._format_tools_for_anthropic(available_tools)
-            logger.info(f"Formatted tools for Anthropic: {anthropic_formatted_tools}")
 
         try:
             if kwargs.get("stream"):
@@ -200,54 +126,61 @@ class ClaudeAIModel(AIModel):
                         content += text
                         idx += 1
             else:
-                initial_user_messages = messages # Keep track of original request messages
-                
-                current_messages_history = initial_user_messages.copy()
                 iteration_count = 0
-                max_iterations = 5 # Safety break for sequential tool calls
-                final_response_content = ""
-                final_stop_reason = None
-            
-                # Can be while True:
-                while iteration_count < max_iterations:
-                    
+                while iteration_count < max_tool_iterations:
                     call_kwargs = {
                         "model": self.model,
                         "messages": current_messages_history,
                         "max_tokens": max_tokens,
                     }
+                    
+                    if system_prompt:
+                        call_kwargs['system'] = system_prompt
     
                     logger.debug(f"Calling Claude API with messages: {current_messages_history}")
-                    
-                    if anthropic_formatted_tools:
-                        call_kwargs["tools"] = anthropic_formatted_tools
                         
                     response = client.messages.create(**call_kwargs)
-                    final_stop_reason = response.stop_reason
-                    logger.debug(f"Non-streaming response received. Stop Reason: {final_stop_reason}, Role: {response.role}")
+                    # *** TOOL CALL CHECK ***
+                    response_text = response.content[0].text if response.content else ""
                     
-                    if final_stop_reason == "tool_use":
-                        logger.info(f"Tool use requested (non-streaming).")
-                        current_messages_history.append({'role': response.role, 'content': response.content})
-                        tool_use_blocks: t.List[ToolUseBlock] = [block for block in response.content if isinstance(block, ToolUseBlock)]
-                        
-                        logger.debug(f"Tool blocks: {tool_use_blocks}")
-                        
-                        if not tool_use_blocks:
-                            logger.warning("Stop reason was 'tool_use', but no ToolUseBlocks found in content.")
-                            break
-                        
-                        tools_result_message = self._execute_anthropic_tools(tool_use_blocks, tool_registry)
-                        current_messages_history.append(tools_result_message)
-                        continue
+                    # Parse the response for the <tool_call> block
+                    parsed_tool_call = parse_tool_call_block(response_text)
+                    if parsed_tool_call:
+                        tool_name = parsed_tool_call.get("tool_name")
+                        parameters = parsed_tool_call.get("parameters", {})
+
+                        if response:
+                            assistant_message_to_add = {"role": response.role, "content": response.content} 
+                        else:
+                            assistant_message_to_add = {"role": "assistant", "content": response_text}
+                        current_messages_history.append(assistant_message_to_add)
+
+                        tool_definition = tool_registry.get(tool_name)
+
+                        # Execute the tool
+                        if tool_definition and tool_definition.execution_function:
+                            try:
+                                logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
+                                tool_result_str = tool_definition.execution_function(**parameters)
+                                logger.info(f"Tool '{tool_name}' executed. Result snippet: {tool_result_str[:200]}...")
+                            except Exception as exec_err:
+                                logger.exception(f"Error executing tool '{tool_name}'", exc_info=exec_err)
+                                tool_result_str = json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(exec_err)}"})
+                        else:
+                            logger.warning(f"Tool '{tool_name}' requested but not found in registry or not executable.")
+                            tool_result_str = json.dumps({"error": f"Tool '{tool_name}' is not available."})
+
+                        # Add the tool result to history
+                        tool_result_message = format_tool_result_message(tool_name, tool_result_str)
+                        current_messages_history.append(tool_result_message)
+
+                        continue                    
                     else:
-                        logger.info(f"Model finished without requesting tools (Reason: {final_stop_reason}).")
                         text_blocks = [block.text for block in response.content if block.type == "text"]
                         final_response_content = "\n".join(text_blocks).strip()
-                        break # Exit the while loop, interaction is complete
+                        content = final_response_content
+                        break
                     
-            content = final_response_content
-            
             return ClaudeAIReponse(
                 message=Message(content=content, role="assistant"),
                 content=content,
