@@ -1,6 +1,6 @@
 import logging
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
 
@@ -141,9 +141,7 @@ class OpenAIModel(AIModel):
     ) -> OpenAIResponse:
                 
         client = self.get_client(client_secrets)
-        tool_definitions = []
-        for tool_definition in tool_registry.values():
-            tool_definitions.append(tool_definition)
+        tool_definitions = list(tool_registry.values())
             
         # Inject Tool Prompts into initial messages
         current_messages_history = inject_tool_prompts(messages, tool_definitions)
@@ -169,11 +167,17 @@ class OpenAIModel(AIModel):
 
                 #TODO: handle streaming part later
                 if kwargs.get("stream"):
+                    
                     return OpenAIStreamResponse(
                         stream_function=stream_function,
                         check_connection=check_connection,
                         stream_params=stream_params,
                         original_result=result,
+                        client=client,
+                        initial_call_kwargs=call_kwargs,
+                        tool_registry=tool_registry,
+                        initial_messages_history=current_messages_history,
+                        max_tool_iterations=max_tool_iterations,
                         prompt=Prompt(
                             messages=kwargs.get("messages"),
                             functions=kwargs.get("tools"),
@@ -202,7 +206,6 @@ class OpenAIModel(AIModel):
                     else: 
                         assistant_message_to_add = {"role": "assistant", "content": response_text}
                     current_messages_history.append(assistant_message_to_add)
-
 
                     tool_definition = tool_registry.get(tool_name)
 
@@ -250,6 +253,19 @@ class OpenAIStreamResponse(OpenAIResponse):
     stream_function: t.Callable
     check_connection: t.Callable
     stream_params: dict
+    
+    client: OpenAI
+    tool_registry: t.Dict[str, ToolDefinition]
+    max_tool_iterations: int
+    initial_call_kwargs: dict # Original non-message kwargs
+    initial_messages_history: t.List[dict] # Original messages list *with tool prompts injected*
+
+    # Internal state for the stream method
+    _current_messages_history: t.List[dict] = field(init=False, default_factory=list)
+    _total_accumulated_content: str = field(init=False, default="")
+    
+    def __post_init__(self):
+        self._current_messages_history = list(self.initial_messages_history)
 
     def process_message(self, text: str, idx: int):
         if idx % 5 == 0:
@@ -260,16 +276,119 @@ class OpenAIStreamResponse(OpenAIResponse):
         self.stream_function(text, **self.stream_params)
 
     def stream(self):
-        content = ""
-        for i, data in enumerate(self.original_result):
-            if not data.choices:
-                continue
-            choice = data.choices[0]
-            if choice.delta:
-                content += choice.delta.content or ""
-                self.process_message(choice.delta.content, i)
-        self.message = Message(
-            content=content,
-            role="assistant",
-        )
+        """
+        Processes the stream, parses for custom <tool_call> blocks,
+        executes tools, and restarts the stream if necessary.
+        """
+        iteration_count = 0
+        current_stream_iterator = self.original_result # Start with the initial iterator
+
+        while iteration_count < self.max_tool_iterations:
+            iteration_count += 1
+            logger.info(f"--- Custom Tool Streaming Iteration: {iteration_count} ---")
+
+            current_stream_part_content = ""
+            current_finish_reason = None
+            assistant_response_for_history = {"role": "assistant", "content": ""} # To store raw assistant text
+
+            stream_idx = 0
+            try:
+                logger.debug("Processing stream chunks...")
+                for chunk in current_stream_iterator:
+                    stream_idx += 1
+                    if not chunk.choices:
+                        continue
+
+                    delta = chunk.choices[0].delta
+                    finish_reason = chunk.choices[0].finish_reason
+                    current_finish_reason = finish_reason # Track the latest finish reason
+
+                    # Accumulate content and stream out using process_message
+                    if delta and delta.content:
+                        text_chunk = delta.content
+                        current_stream_part_content += text_chunk
+                        self.process_message(text_chunk, stream_idx)
+
+                    # If stream part finished, break inner loop
+                    if finish_reason:
+                        logger.debug(f"Stream part finished with reason: {finish_reason}")
+                        break
+
+                # --- After processing chunks for this stream part ---
+                logger.debug(f"Accumulated content for parsing: {current_stream_part_content[:500]}...")
+                # Update the assistant message content for history
+                assistant_response_for_history["content"] = current_stream_part_content
+                # Add the raw assistant response to our internal history *before* checking for tool call
+                self._current_messages_history.append(assistant_response_for_history)
+
+                # Parse the *accumulated* text for the custom tool block
+                parsed_tool_call = parse_tool_call_block(current_stream_part_content)
+
+                if parsed_tool_call:
+                    tool_name = parsed_tool_call.get("tool_name")
+                    parameters = parsed_tool_call.get("parameters", {})
+                    logger.info(f"Custom tool call block parsed: {tool_name}")
+
+                    tool_definition = self.tool_registry.get(tool_name)
+                    tool_result_str = "" 
+
+                    # Execute the tool
+                    if tool_definition and tool_definition.execution_function:
+                        try:
+                            logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
+                            # *** EXECUTE TOOL ***
+                            tool_result_str = tool_definition.execution_function(**parameters)
+                            logger.info(f"Tool '{tool_name}' executed. Result snippet: {tool_result_str[:200]}...")
+                        except Exception as exec_err:
+                            logger.exception(f"Error executing tool '{tool_name}'", exc_info=exec_err)
+                            tool_result_str = json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(exec_err)}"})
+                    else:
+                        logger.warning(f"Tool '{tool_name}' requested but not found in registry or not executable.")
+                        tool_result_str = json.dumps({"error": f"Tool '{tool_name}' is not available."})
+
+                    tool_result_message = format_tool_result_message(tool_name, tool_result_str)
+                    self._current_messages_history.append(tool_result_message)
+
+                    # --- Make a *new* streaming call ---
+                    logger.info("Restarting stream after custom tool execution.")
+                    new_call_kwargs = {
+                        **self.initial_call_kwargs,
+                        "messages": self._current_messages_history, 
+                        "stream": True, 
+                    }
+
+                    current_stream_iterator = self.client.chat.completions.create(**new_call_kwargs)
+                    continue
+
+                # --- No Tool Call Found in this stream part ---
+                else:
+                    logger.info("No custom tool call block found in this stream part.")
+                    self._total_accumulated_content = current_stream_part_content # Store final content
+                    self.finish_reason = current_finish_reason or "stop"
+                    break 
+
+            # --- Exception Handling for the inner loop ---
+            except ConnectionLostError as cle:
+                 logger.error("Connection lost during stream processing.", exc_info=cle)
+                 self.finish_reason = "error_connection_lost"
+                 raise cle
+            except Exception as e:
+                logger.exception("Exception during custom stream chunk processing", exc_info=e)
+                self.finish_reason = "error_processing_stream"
+                raise_openai_exception(e)
+
+        # --- End of outer while loop ---
+        if iteration_count >= self.max_tool_iterations:
+             logger.warning(f"Reached maximum tool call iterations ({self.max_tool_iterations}) during custom streaming.")
+             self.finish_reason = "error_max_tool_iterations"
+             self._total_accumulated_content = current_stream_part_content
+
+        # Populate final fields of the response object
+        self.content = self._total_accumulated_content
+        self.message = Message( # Use your Message class structure
+             content=self.content,
+             role="assistant"
+             )
+
+        logger.debug(f"Custom stream processing complete. Final finish reason: {self.finish_reason}")
         return self

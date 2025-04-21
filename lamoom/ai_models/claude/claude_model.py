@@ -5,12 +5,12 @@ from lamoom.ai_models.constants import C_200K, C_4K
 from lamoom.responses import AIResponse
 from lamoom.ai_models.tools import ToolDefinition, AVAILABLE_TOOLS_REGISTRY, inject_tool_prompts, parse_tool_call_block, \
     format_tool_result_message
-from decimal import Decimal
+
 from enum import Enum
 import json
 
 import typing as t
-from dataclasses import dataclass, is_dataclass, asdict
+from dataclasses import dataclass
 
 from lamoom.ai_models.claude.responses import ClaudeAIReponse
 from lamoom.ai_models.claude.constants import HAIKU, SONNET, OPUS
@@ -88,9 +88,7 @@ class ClaudeAIModel(AIModel):
         }
         messages = self.uny_all_messages_with_same_role(messages)
         
-        tool_definitions = []
-        for tool_definition in tool_registry.values():
-            tool_definitions.append(tool_definition)
+        tool_definitions = list(tool_registry.values())
             
         # Inject Tool Prompts into initial messages
         current_messages_history = inject_tool_prompts(messages, tool_definitions)
@@ -113,18 +111,99 @@ class ClaudeAIModel(AIModel):
 
         try:
             if kwargs.get("stream"):
-                with client.messages.stream(
-                    model=self.model, max_tokens=max_tokens, messages=messages
-                ) as stream:
-                    idx = 0
-                    for text in stream.text_stream:
-                        if idx % 5 == 0:
-                            if not check_connection(**stream_params):
-                                raise ConnectionLostError("Connection was lost!")
+                iteration_count = 0
+                while iteration_count < max_tool_iterations:
+                    iteration_count += 1
+                    logger.info(f"--- Custom Claude Tool Streaming Iteration: {iteration_count} ---")
 
-                        stream_function(text, **stream_params)
-                        content += text
-                        idx += 1
+                    current_stream_part_content = ""
+                    stream_stop_reason = None # Reason for this specific stream part
+
+                    call_kwargs = {
+                            "model": self.model,
+                            "max_tokens": max_tokens,
+                            "messages": current_messages_history, # Use current history
+                        }
+                    
+                    if system_prompt:
+                        call_kwargs["system"] = system_prompt
+
+                    stream_idx = 0
+                    try:
+                        logger.debug(f"Initiating Claude stream. History length: {len(current_messages_history)}")
+                        with client.messages.stream(**call_kwargs) as stream_handler:
+                            for text_chunk in stream_handler.text_stream:
+                                stream_idx += 1
+                                # Check connection periodically
+                                if stream_idx % 5 == 0:
+                                    if not check_connection(**stream_params):
+                                        raise ConnectionLostError("Connection was lost!")
+                                # Accumulate content
+                                current_stream_part_content += text_chunk
+                                if text_chunk:
+                                    stream_function(text_chunk, **stream_params)
+
+                            # Get final message details after stream ends
+                            final_message_status = stream_handler.get_final_message()
+                            stream_stop_reason = final_message_status.stop_reason
+                            logger.debug(f"Claude stream part finished. Stop Reason: {stream_stop_reason}")
+
+                    except ConnectionLostError: # Catch specifically
+                         raise # Re-raise immediately
+                    except anthropic.APIError as e:
+                         logger.exception("[CLAUDEAI] API Error during stream processing", exc_info=e)
+                         raise RetryableCustomError(f"Claude AI API Error: {e}") from e
+                    except Exception as e:
+                        logger.exception("Exception during Claude stream processing", exc_info=e)
+                        raise RetryableCustomError(f"Claude AI stream processing failed: {e}") from e
+
+                    # --- After processing stream part ---
+                    logger.debug(f"Accumulated stream content for parsing: {current_stream_part_content[:500]}...")
+
+                    # Add the raw assistant response to history *before* parsing
+                    assistant_message_to_add = {"role": "assistant", "content": current_stream_part_content}
+                    current_messages_history.append(assistant_message_to_add)
+
+                    # Parse the accumulated text for the custom tool block
+                    parsed_tool_call = parse_tool_call_block(current_stream_part_content)
+
+                    if parsed_tool_call:
+                        tool_name = parsed_tool_call.get("tool_name")
+                        parameters = parsed_tool_call.get("parameters", {})
+                        logger.info(f"Custom tool call block parsed: {tool_name}")
+
+                        tool_definition = tool_registry.get(tool_name)
+                        tool_result_str = "" # Initialize
+
+                        # Execute the tool
+                        if tool_definition and tool_definition.execution_function:
+                            try:
+                                logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
+                                tool_result_str = tool_definition.execution_function(**parameters)
+                                logger.info(f"Tool '{tool_name}' executed. Result snippet: {tool_result_str[:200]}...")
+                            except Exception as exec_err:
+                                logger.exception(f"Error executing tool '{tool_name}'", exc_info=exec_err)
+                                tool_result_str = json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(exec_err)}"})
+                        else:
+                            logger.warning(f"Tool '{tool_name}' requested but not found/executable.")
+                            tool_result_str = json.dumps({"error": f"Tool '{tool_name}' is not available."})
+
+                        tool_result_message = format_tool_result_message(tool_name, tool_result_str)
+                        current_messages_history.append(tool_result_message)
+
+                        continue
+
+                    # --- No Tool Call Found in this stream part ---
+                    else:
+                        logger.info("No custom tool call block found in this stream part. Finishing.")
+                        content = current_stream_part_content # Final content is from this last part
+                        break
+
+                # --- End of streaming while loop ---
+                if iteration_count >= max_tool_iterations:
+                    logger.warning(f"Reached max tool call iterations ({max_tool_iterations}) during custom Claude streaming.")
+                    # Use content from the last attempt as final content
+                    content = current_stream_part_content
             else:
                 iteration_count = 0
                 while iteration_count < max_tool_iterations:
