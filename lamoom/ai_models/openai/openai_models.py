@@ -132,7 +132,7 @@ class OpenAIModel(AIModel):
         max_tokens: t.Optional[int],
         functions: t.List[t.Dict[str, str]] = [],
         tool_registry: t.Dict[str, ToolDefinition] = AVAILABLE_TOOLS_REGISTRY,
-        max_tool_iterations: int = 5,   # Safety limit for sequential calls
+        max_tool_iterations: int = 10,   # Safety limit for sequential calls
         stream_function: t.Callable = None,
         check_connection: t.Callable = None,
         stream_params: dict = {},
@@ -269,7 +269,7 @@ class OpenAIStreamResponse(OpenAIResponse):
 
     def process_message(self, text: str, idx: int):
         if idx % 5 == 0:
-            if not self.check_connection(**self.stream_params):
+            if self.check_connection and not self.check_connection(**self.stream_params):
                 raise ConnectionLostError("Connection was lost!")
         if not text:
             return
