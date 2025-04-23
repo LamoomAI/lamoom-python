@@ -3,6 +3,7 @@ import typing as t
 from collections import defaultdict
 from dataclasses import dataclass, field
 
+from lamoom.ai_models.tools.base_tool import ToolDefinition
 from lamoom.prompt.chat import ChatsEntity
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,8 @@ class BasePrompt:
     functions: t.List[dict] = None
     top_p: float = 0.0
     temperature: float = 0.0
+    # Add tool registry
+    tool_registry: t.Dict[str, ToolDefinition] = field(default_factory=dict)
 
     def get_params(self):
         return {
@@ -72,3 +75,14 @@ class BasePrompt:
         if not self.functions:
             self.functions = []
         self.functions.append(function)
+
+    def add_tool(
+            self, tool: ToolDefinition
+    ):
+        self.tool_registry[tool.name] = tool
+
+    def add_tools(
+            self, tools: list[ToolDefinition]
+    ):
+        for tool in tools:
+            self.tool_registry[tool.name] = tool

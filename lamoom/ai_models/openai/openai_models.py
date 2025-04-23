@@ -132,6 +132,7 @@ class OpenAIModel(AIModel):
         max_tokens: t.Optional[int],
         functions: t.List[t.Dict[str, str]] = [],
         tool_registry: t.Dict[str, ToolDefinition] = AVAILABLE_TOOLS_REGISTRY,
+        mcp_call_registry: t.Dict[str, t.Callable] = None,
         max_tool_iterations: int = 5,   # Safety limit for sequential calls
         stream_function: t.Callable = None,
         check_connection: t.Callable = None,
@@ -165,9 +166,7 @@ class OpenAIModel(AIModel):
                     **call_kwargs,
                 )
 
-                #TODO: handle streaming part later
                 if kwargs.get("stream"):
-                    
                     return OpenAIStreamResponse(
                         stream_function=stream_function,
                         check_connection=check_connection,
@@ -176,8 +175,9 @@ class OpenAIModel(AIModel):
                         client=client,
                         initial_call_kwargs=call_kwargs,
                         tool_registry=tool_registry,
-                        initial_messages_history=current_messages_history,
+                        mcp_call_registry=mcp_call_registry,
                         max_tool_iterations=max_tool_iterations,
+                        initial_messages_history=current_messages_history,
                         prompt=Prompt(
                             messages=kwargs.get("messages"),
                             functions=kwargs.get("tools"),
@@ -207,21 +207,10 @@ class OpenAIModel(AIModel):
                         assistant_message_to_add = {"role": "assistant", "content": response_text}
                     current_messages_history.append(assistant_message_to_add)
 
-                    tool_definition = tool_registry.get(tool_name)
-
-                    # Execute the tool
-                    if tool_definition and tool_definition.execution_function:
-                        try:
-                            logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
-                            tool_result_str = tool_definition.execution_function(**parameters)
-                            logger.info(f"Tool '{tool_name}' executed. Result snippet: {tool_result_str[:200]}...")
-                        except Exception as exec_err:
-                            logger.exception(f"Error executing tool '{tool_name}'", exc_info=exec_err)
-                            tool_result_str = json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(exec_err)}"})
-                    else:
-                        logger.warning(f"Tool '{tool_name}' requested but not found in registry or not executable.")
-                        tool_result_str = json.dumps({"error": f"Tool '{tool_name}' is not available."})
-
+                    # Execute the tool and get result
+                    tool_result_str = self._handle_tool_call(tool_name, parameters, mcp_call_registry)
+                    
+                    # Add tool result to history
                     tool_result_message = format_tool_result_message(tool_name, tool_result_str)
                     current_messages_history.append(tool_result_message)
 
@@ -256,6 +245,7 @@ class OpenAIStreamResponse(OpenAIResponse):
     
     client: OpenAI
     tool_registry: t.Dict[str, ToolDefinition]
+    mcp_call_registry: t.Dict[str, t.Callable]
     max_tool_iterations: int
     initial_call_kwargs: dict # Original non-message kwargs
     initial_messages_history: t.List[dict] # Original messages list *with tool prompts injected*
@@ -274,6 +264,32 @@ class OpenAIStreamResponse(OpenAIResponse):
         if not text:
             return
         self.stream_function(text, **self.stream_params)
+
+    def _handle_tool_call(self,
+                         tool_name: str,
+                         parameters: dict) -> str:
+        """Handle a tool call by executing the corresponding function from the MCP registry.
+        
+        Args:
+            tool_name: Name of the tool to execute
+            parameters: Parameters for the tool
+            
+        Returns:
+            String representation of the tool result
+        """
+        tool_function = self.mcp_call_registry.get(tool_name)
+        if not tool_function:
+            logger.warning(f"Tool '{tool_name}' not found in MCP registry")
+            return json.dumps({"error": f"Tool '{tool_name}' is not available."})
+
+        try:
+            logger.info(f"Executing MCP tool '{tool_name}' with parameters: {parameters}")
+            result = tool_function(**parameters)
+            logger.info(f"MCP tool '{tool_name}' executed successfully")
+            return json.dumps({"result": result})
+        except Exception as e:
+            logger.exception(f"Error executing MCP tool '{tool_name}'", exc_info=e)
+            return json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(e)}"})
 
     def stream(self):
         """
@@ -329,23 +345,10 @@ class OpenAIStreamResponse(OpenAIResponse):
                     parameters = parsed_tool_call.get("parameters", {})
                     logger.info(f"Custom tool call block parsed: {tool_name}")
 
-                    tool_definition = self.tool_registry.get(tool_name)
-                    tool_result_str = "" 
-
-                    # Execute the tool
-                    if tool_definition and tool_definition.execution_function:
-                        try:
-                            logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
-                            # *** EXECUTE TOOL ***
-                            tool_result_str = tool_definition.execution_function(**parameters)
-                            logger.info(f"Tool '{tool_name}' executed. Result snippet: {tool_result_str[:200]}...")
-                        except Exception as exec_err:
-                            logger.exception(f"Error executing tool '{tool_name}'", exc_info=exec_err)
-                            tool_result_str = json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(exec_err)}"})
-                    else:
-                        logger.warning(f"Tool '{tool_name}' requested but not found in registry or not executable.")
-                        tool_result_str = json.dumps({"error": f"Tool '{tool_name}' is not available."})
-
+                    # Execute the tool and get result
+                    tool_result_str = self._handle_tool_call(tool_name, parameters)
+                    
+                    # Add tool result to history
                     tool_result_message = format_tool_result_message(tool_name, tool_result_str)
                     self._current_messages_history.append(tool_result_message)
 

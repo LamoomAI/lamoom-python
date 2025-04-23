@@ -1,9 +1,12 @@
+from dataclasses import dataclass, field
 import logging
 from copy import deepcopy
-from dataclasses import dataclass
+
+import typing as t
 
 from lamoom import settings
 from lamoom.ai_models.attempt_to_call import AttemptToCall
+from lamoom.ai_models.tools.base_tool import ToolDefinition
 from lamoom.prompt.base_prompt import BasePrompt
 from lamoom.prompt.chat import ChatsEntity
 from lamoom.prompt.user_prompt import UserPrompt

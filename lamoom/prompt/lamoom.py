@@ -258,6 +258,7 @@ class Lamoom:
                     result = current_attempt.ai_model.call(
                         calling_messages.get_messages(),
                         calling_messages.max_sample_budget,
+                        tool_registry=prompt.tool_registry,
                         stream_function=stream_function,
                         check_connection=check_connection,
                         stream_params=stream_params,

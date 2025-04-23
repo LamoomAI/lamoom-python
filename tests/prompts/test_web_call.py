@@ -31,6 +31,7 @@ def test_web_call(client):
     client.service.clear_cache()
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')
+    prompt.add_tool(WEB_SEARCH_TOOL)
     
     result = client.call(prompt.id, context, "openai/gpt-4o")
 
