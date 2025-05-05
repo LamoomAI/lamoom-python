@@ -1,0 +1,198 @@
+import logging
+import typing as t
+from dataclasses import dataclass
+import json
+import re
+
+
+logger = logging.getLogger(__name__)
+
+# --- Constants for Prompting ---
+TOOL_CALL_START_TAG = "<tool_call>"
+TOOL_CALL_END_TAG = "</tool_call>"
+
+
+def get_tool_system_prommpt(tool_descriptions: str):
+    return  f"""You have next skills:
+```
+{tool_descriptions}
+```
+
+If you wish to make a call you need to make a call:
+```
+""" + TOOL_CALL_START_TAG + """
+{
+"tool_name": "...",
+"parameters": {
+ // parameters of the tool
+}
+}
+""" + TOOL_CALL_END_TAG + """
+"""
+
+
+@dataclass
+class ToolCallResult:
+    content: str
+    has_tool_call: bool
+    tool_name: t.Optional[str] = None
+    parameters: t.Optional[dict] = None
+    execution_result: str = None
+
+
+@dataclass
+class ToolParameter:
+    name: str
+    type: str
+    description: str
+    required: bool = True
+
+
+@dataclass
+class ToolDefinition:
+    name: str
+    description: str
+    parameters: t.List[ToolParameter]
+    execution_function: t.Callable
+
+
+def format_tool_description(tool: ToolDefinition) -> str:
+    """Formats a single tool's description for the prompt."""
+    param_desc = ",\n".join([f'"{p.name}": ... \\ {p.type} - ({p.description})' for p in tool.parameters])
+    return f"//{tool.description}\n- {tool.name}({{{param_desc}}})"
+
+
+def inject_tool_prompts(
+    messages: t.List[dict],
+    available_tools: t.List[ToolDefinition]
+    ) -> t.List[dict]:
+    """Injects tool descriptions and usage instructions into the system prompt."""
+    if not available_tools:
+        return messages
+
+    tool_descriptions = "\n".join([format_tool_description(tool) for tool in available_tools])
+    tool_system_prompt = get_tool_system_prommpt(tool_descriptions)
+    # Find system prompt or prepend to user prompt
+    modified_messages = list(messages) # Create a copy
+    found_system = False
+    for i, msg in enumerate(modified_messages):
+        if msg.get("role") == "system":
+            # Append to existing system prompt
+            modified_messages[i]["content"] = f"{msg.get('content', '')}\n\n{tool_system_prompt}"
+            found_system = True
+            break
+
+    if not found_system:
+        # Prepend a new system message
+        modified_messages.insert(0, {"role": "system", "content": tool_system_prompt})
+
+    logger.debug(f"Injected tool system prompt:\n{tool_system_prompt}")
+    return modified_messages
+
+
+def parse_tool_call_block(text_response: str) -> t.Optional[ToolCallResult]:
+    """
+    Parses the <tool_call> block from the model's text response using regex.
+    Returns a ToolCallResult object if a valid tool call is found, None otherwise.
+    """
+    if not text_response:
+        return None
+
+    # Regex to find the block, allowing for whitespace variations
+    # DOTALL allows '.' to match newlines within the JSON block
+    match = re.search(
+        rf"{re.escape(TOOL_CALL_START_TAG)}(.*?){re.escape(TOOL_CALL_END_TAG)}",
+        text_response,
+        re.DOTALL | re.IGNORECASE
+    )
+
+    if not match:
+        return None
+    json_content = match.group(1).strip()
+    logger.debug(f"Found potential tool call JSON block: {json_content}")
+
+    try:
+        parsed_data = json.loads(json_content)
+        # Basic validation
+        if "tool_name" in parsed_data and (
+                "parameters" in parsed_data and isinstance(parsed_data["parameters"], dict) or "parameters" not in parsed_data
+            ):
+            logger.info(f"Successfully parsed tool call: {parsed_data['tool_name']}")
+            return ToolCallResult(
+                content=text_response,
+                has_tool_call=True,
+                tool_name=parsed_data.get("tool_name"),
+                parameters=parsed_data.get("parameters", {}),
+                execution_result=""
+            )
+        else:
+            logger.warning(f"Parsed JSON block lacks required 'tool_name' or 'parameters': {json_content}")
+            return None
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to decode JSON from tool call block: {json_content}", exc_info=e)
+        return None
+
+
+def call_function(tool_name: str, parameters: dict, tool_registry={}) -> str:
+    """Handle a tool call by executing the corresponding function from the MCP registry.
+    
+    Args:
+        tool_name: Name of the tool to execute
+        parameters: Parameters for the tool
+        
+    Returns:
+        String representation of the tool result
+    """
+    tool_function = tool_registry.get(tool_name)
+    if not tool_function:
+        logger.warning(f"Tool '{tool_name}' not found in MCP registry")
+        return json.dumps({"error": f"Tool '{tool_name}' is not available."})
+    tool_execution_function = tool_function.execution_function
+    try:
+        logger.info(f"Executing MCP tool '{tool_name}' with parameters: {parameters}")
+        result = tool_execution_function(**parameters)
+        logger.info(f"MCP tool '{tool_name}' executed successfully: {result}")
+        return json.dumps({"result": result})
+    except Exception as e:
+        logger.exception(f"Error executing MCP tool '{tool_name}'", exc_info=e)
+        return json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(e)}"})
+
+
+def handle_tool_call(current_stream_part_content, tool_registry) -> ToolCallResult:
+    """Handle a tool call by executing the corresponding function from the MCP registry.
+    
+    Args:
+        current_stream_part_content: The current content of the stream
+        tool_registry: Registry of available tools
+        
+    Returns:
+        ToolCallResult object containing the result of the tool call
+    """
+    parsed_tool_call = parse_tool_call_block(current_stream_part_content)
+    
+    if not parsed_tool_call:
+        return None
+    tool_name = parsed_tool_call.tool_name
+    parameters = parsed_tool_call.parameters
+    logger.info(f"Custom tool call block parsed: {tool_name}")
+
+    # Execute the tool and get result
+    tool_result_str = call_function(tool_name, parameters, tool_registry=tool_registry)
+    
+    return ToolCallResult(
+        content=current_stream_part_content,
+        has_tool_call=True,
+        tool_name=tool_name,
+        parameters=parameters,
+        execution_result=tool_result_str,
+    )
+
+
+def format_tool_result_message(tool_name, tool_result_str):
+    return f'''
+<tool_call_result>{{
+"tool_name": "{tool_name}",
+"parameters": "{tool_result_str}"
+}}
+<tool_call_result>
+'''
