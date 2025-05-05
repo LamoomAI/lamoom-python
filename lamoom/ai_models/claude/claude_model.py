@@ -1,9 +1,10 @@
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 
+from lamoom.ai_models.claude.constants import HAIKU, SONNET, OPUS
 from lamoom.ai_models.constants import C_4K
 from lamoom.responses import AIResponse
-from lamoom.ai_models.tools import ToolDefinition, AVAILABLE_TOOLS_REGISTRY, inject_tool_prompts
+from lamoom.ai_models.tools.base_tool import ToolDefinition, handle_tool_call, inject_tool_prompts
 from enum import Enum
 
 import typing as t
@@ -13,7 +14,6 @@ from lamoom.ai_models.utils import get_common_args
 
 from lamoom.exceptions import RetryableCustomError, ConnectionLostError
 import anthropic
-from lamoom.ai_models.tools.base_tool_handler import BaseToolHandler
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,6 @@ class ClaudeAIModel(AIModel):
     api_key: str = None
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.CLAUDE
     family: str = None
-    tool_handler: BaseToolHandler = None
 
     def __post_init__(self):
         if HAIKU in self.model:
@@ -45,10 +44,6 @@ class ClaudeAIModel(AIModel):
                 f"Unknown family for {self.model}. Please add it obviously. Setting as Claude 3 Opus"
             )
             self.family = FamilyModel.opus.value
-
-        # Initialize tool handler
-        self.tool_handler = BaseToolHandler(tool_registry=AVAILABLE_TOOLS_REGISTRY)
-
         logger.debug(f"Initialized ClaudeAIModel: {self}")
 
     def get_client(self, client_secrets: dict) -> anthropic.Anthropic:
@@ -75,7 +70,7 @@ class ClaudeAIModel(AIModel):
                                stream_function: t.Callable,
                                check_connection: t.Callable,
                                stream_params: dict,
-                               mcp_call_registry: t.Dict[str, t.Callable]) -> t.Tuple[str, str, bool]:
+                               tool_registry: t.Dict[str, ToolDefinition]) -> t.Tuple[str, str, bool]:
         """Process a single streaming response from Claude.
         
         Args:
@@ -93,7 +88,7 @@ class ClaudeAIModel(AIModel):
         """
         current_stream_part_content = ""
         stream_stop_reason = None
-        has_tool_call = False
+        detected_tool_call = None
         
         call_kwargs = {
             "model": self.model,
@@ -108,20 +103,22 @@ class ClaudeAIModel(AIModel):
         try:
             logger.debug(f"Initiating Claude stream. History length: {len(current_messages_history)}")
             with client.messages.stream(**call_kwargs) as stream_handler:
+                current_stream_part_content = ''
                 for text_chunk in stream_handler.text_stream:
                     stream_idx += 1
-                    if stream_idx % 5 == 0 and not check_connection(**stream_params):
+                    if check_connection and stream_idx % 5 == 0 and not check_connection(**stream_params):
                         raise ConnectionLostError("Connection was lost!")
                     
                     current_stream_part_content += text_chunk
-                    if text_chunk:
+                    if stream_function and text_chunk:
                         stream_function(text_chunk, **stream_params)
                         
                     # Check for tool call after each chunk
-                    detected_tool_call = self.tool_handler.handle_tool_call(
-                        current_stream_part_content
+                    detected_tool_call = handle_tool_call(
+                        current_stream_part_content, tool_registry
                     )
                     if detected_tool_call:
+                        logger.info(f'Found tool {detected_tool_call} in the response')
                         break  # Stop streaming when tool call is detected
 
                 if not detected_tool_call:
@@ -131,8 +128,9 @@ class ClaudeAIModel(AIModel):
 
                 else:
                     current_messages_history.append(
-                        {"role": "assistant", "message": current_stream_part_content + detected_tool_call.execution_result}
+                        {"role": "assistant", "content": current_stream_part_content + detected_tool_call.execution_result}
                     )
+                
                     
         except ConnectionLostError:
             raise
@@ -143,54 +141,14 @@ class ClaudeAIModel(AIModel):
             logger.exception("Exception during Claude stream processing", exc_info=e)
             raise RetryableCustomError(f"Claude AI stream processing failed: {e}") from e
 
-        return current_stream_part_content, stream_stop_reason, has_tool_call
+        return current_stream_part_content, stream_stop_reason, detected_tool_call
 
-    def _process_non_stream_response(self,
-                                   client: anthropic.Anthropic,
-                                   current_messages_history: t.List[dict],
-                                   max_tokens: int,
-                                   system_prompt: t.Optional[str]) -> str:
-        """Process a non-streaming response from Claude.
-        
-        Args:
-            client: Anthropic client instance
-            current_messages_history: Current conversation history
-            max_tokens: Maximum tokens to generate
-            system_prompt: Optional system prompt
-            
-        Returns:
-            Final response content
-        """
-        call_kwargs = {
-            "model": self.model,
-            "messages": current_messages_history,
-            "max_tokens": max_tokens,
-        }
-        
-        if system_prompt:
-            call_kwargs['system'] = system_prompt
-
-        logger.debug(f"Calling Claude API with messages: {current_messages_history}")
-        response = client.messages.create(**call_kwargs)
-        
-        text_blocks = [block.text for block in response.content if block.type == "text"]
-        content = "\n".join(text_blocks).strip()
-        
-        # Check for tool call
-        content, has_tool_call = self.tool_handler.handle_tool_call(content)
-        
-        if has_tool_call:
-            # Recursively process the next response
-            return self._process_non_stream_response(client, current_messages_history, max_tokens, system_prompt)
-            
-        return content
 
     def call(self, 
             messages: t.List[dict], 
             max_tokens: int, 
             client_secrets: dict = {}, 
             tool_registry: t.Dict[str, ToolDefinition] = {},
-            mcp_call_registry: t.Dict[str, t.Callable] = None,
             max_tool_iterations: int = 5,   # Safety limit for sequential calls
             **kwargs) -> AIResponse:
         max_tokens = min(max_tokens, self.max_tokens)
@@ -202,10 +160,6 @@ class ClaudeAIModel(AIModel):
             **kwargs,
         }
         
-        # Update tool handler with MCP registry
-        if mcp_call_registry:
-            self.tool_handler.mcp_call_registry = mcp_call_registry
-            
         # Inject Tool Prompts into initial messages
         current_messages_history = inject_tool_prompts(messages, list(tool_registry.values()))
         
@@ -224,40 +178,34 @@ class ClaudeAIModel(AIModel):
         stream_params = kwargs.get("stream_params")
 
         content = ""
+        iteration_count = 0
+        while iteration_count < max_tool_iterations:
+            iteration_count += 1
+            try:
+                logger.info(f"--- Custom Claude Tool Streaming Iteration: {iteration_count} ---")
 
-        try:
-            if kwargs.get("stream"):
-                iteration_count = 0
-                while iteration_count < max_tool_iterations:
-                    iteration_count += 1
-                    logger.info(f"--- Custom Claude Tool Streaming Iteration: {iteration_count} ---")
-
-                    current_stream_part_content, stream_stop_reason, has_tool_call = self._process_stream_response(
-                        client, current_messages_history, max_tokens, system_prompt,
-                        stream_function, check_connection, stream_params, mcp_call_registry
-                    )
-
-                    # Add the raw assistant response to history *before* parsing
-                    assistant_message_to_add = {"role": "assistant", "content": current_stream_part_content}
-                    current_messages_history.append(assistant_message_to_add)
-
-                    if has_tool_call:
-                        continue
-
-                    # --- No Tool Call Found in this stream part ---
-                    content += current_stream_part_content
-                    if stream_stop_reason == "end_turn":
-                        break
-
-            else:
-                content = self._process_non_stream_response(
-                    client, current_messages_history, max_tokens, system_prompt
+                current_stream_part_content, stream_stop_reason, detected_tool_call = self._process_stream_response(
+                    client, current_messages_history, max_tokens, system_prompt,
+                    stream_function, check_connection, stream_params, tool_registry
                 )
 
-        except Exception as e:
-            logger.exception("Exception during Claude API call", exc_info=e)
-            raise RetryableCustomError(f"Claude AI API call failed: {e}") from e
+                # Add the raw assistant response to history *before* parsing
+                assistant_message_to_add = {"role": "assistant", "content": current_stream_part_content}
+                current_messages_history.append(assistant_message_to_add)
 
+                if detected_tool_call:
+                    logger.info(f'Found {detected_tool_call}')
+                    continue
+
+                # --- No Tool Call Found in this stream part ---
+                content += current_stream_part_content
+                if stream_stop_reason == "end_turn":
+                    break
+            except Exception as e:
+                logger.exception("Exception during Claude API call", exc_info=e)
+                raise RetryableCustomError(f"Claude AI API call failed: {e}") from e
+
+        logger.info(f"Returning: {content}")
         return AIResponse(content=content)
 
     @property

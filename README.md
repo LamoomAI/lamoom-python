@@ -202,6 +202,14 @@ client.add_ideal_answer(
 )
 ```
 
+### To Add Search Credentials:
+- Add Search ENgine id from here:
+https://programmablesearchengine.google.com/controlpanel/create
+
+- Get A google Search Key:
+https://developers.google.com/custom-search/v1/introduction/?apix=true
+
+
 ### Monitoring and Management
 - **Test Dashboard**: Review created tests and scores at https://cloud.lamoom.com/tests
 - **Prompt Management**: Update prompts and rerun tests for published or saved versions
@@ -220,3 +228,4 @@ This project is licensed under the Apache2.0 License - see the [LICENSE](LICENSE
 
 ## Contact
 For support or contributions, please contact us via GitHub Issues.
+

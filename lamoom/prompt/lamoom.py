@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 import requests
 import time
+from lamoom.ai_models.tools.errors import ToolCallError
 from lamoom.settings import LAMOOM_API_URI
 from lamoom import Secrets, settings    
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
@@ -299,13 +300,15 @@ class Lamoom:
                         )
                     return result
                 except RetryableCustomError as e:
-                    logger.error(
+                    logger.exception(
                         f"Attempt failed: {prompt_attempts.current_attempt} with retryable error: {e}"
                     )
+                    break
                 except Exception as e:
-                    logger.error(
+                    logger.exception(
                         f"Attempt failed: {prompt_attempts.current_attempt} with non-retryable error: {e}"
                     )
+                    break
                     
         logger.exception(
             "Prompt call failed, no attempts worked"

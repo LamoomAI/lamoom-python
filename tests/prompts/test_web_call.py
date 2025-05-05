@@ -3,6 +3,7 @@ import logging
 import time
 from pytest import fixture
 from lamoom import Lamoom, Prompt
+from lamoom.ai_models.tools.web_tool import WEB_SEARCH_TOOL
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +28,7 @@ def test_web_call(client):
     }
 
     # initial version of the prompt
-    prompt_id = f'test-{time.time()}'
+    prompt_id = 'test-web-search'
     client.service.clear_cache()
     prompt = Prompt(id=prompt_id) 
     prompt.add("{text}", role='user')

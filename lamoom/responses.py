@@ -8,18 +8,12 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Prompt(BasePrompt):
-    id: str = None
-    max_tokens: int = None
-    min_sample_tokens: int = settings.DEFAULT_SAMPLE_MIN_BUDGET
-    reserved_tokens_budget_for_sampling: int = None
-    version: str = None
-    # Add tool registry
-    tool_registry: t.Dict[str, ToolDefinition] = field(default_factory=dict)
-
-    def add_tool(self, tool: ToolDefinition):
-        """Add a tool to this prompt's registry"""
-        self.tool_registry[tool.name] = tool
+class Prompt:
+    messages: dict = None
+    functions: dict = None
+    max_tokens: int = 0
+    temperature: Decimal = Decimal(0.0)
+    top_p: Decimal = Decimal(0.0)
 
 
 @dataclass
@@ -43,7 +37,7 @@ class AIResponse:
 
     @property
     def response(self) -> str:
-        return self._response
+        return self._response or self.content or '{}'
 
     def get_message_str(self) -> str:
-        return json.loads(self.response)
+        return self.response
