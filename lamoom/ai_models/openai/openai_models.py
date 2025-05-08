@@ -88,120 +88,12 @@ class OpenAIModel(AIModel):
             "base_url": self.get_base_url() if self.base_url is None else self.base_url
         }
 
-    def call(
-        self,
-        messages,
-        max_tokens,
-        stream_function: t.Callable = None,
-        check_connection: t.Callable = None,
-        stream_params: dict = {},
-        client_secrets: dict = {},
-        **kwargs,
-    ) -> OpenAIResponse:
-        logger.debug(
-            f"Calling {messages} with max_tokens {max_tokens} and kwargs {kwargs}"
-        )
-        if self.family in [
-            FamilyModel.chat.value,
-            FamilyModel.gpt4.value,
-            FamilyModel.gpt4o.value,
-            FamilyModel.gpt4o_mini.value,
-        ]:
-            return self.call_chat_completion(
-                messages,
-                max_tokens,
-                stream_function=stream_function,
-                check_connection=check_connection,
-                stream_params=stream_params,
-                client_secrets=client_secrets,
-                **kwargs,
-            )
-        raise NotImplementedError(f"Openai family {self.family} is not implemented")
-
     def get_client(self, client_secrets: dict = {}):
         return OpenAI(
             organization=client_secrets.get("organization", None),
             api_key=client_secrets["api_key"],
             base_url=self.get_base_url() if self.base_url is None else self.base_url
         )
-
-    def call_chat_completion(
-        self,
-        messages: t.List[t.Dict[str, str]],
-        max_tokens: t.Optional[int],
-        tool_registry: t.Dict[str, ToolDefinition] = {},
-        max_tool_iterations: int = 5,   # Safety limit for sequential calls
-        stream_function: t.Callable = None,
-        check_connection: t.Callable = None,
-        stream_params: dict = {},
-        client_secrets: dict = {},
-        **kwargs,
-    ) -> OpenAIResponse:
-        client = self.get_client(client_secrets)
-        tool_definitions = list(tool_registry.values())
-        
-        # Prepare streaming response
-        stream_response = StreamingResponse(
-            tool_registry=tool_registry,
-            messages=messages
-        )
-        
-        # Inject tool prompts into first message
-        current_messages = inject_tool_prompts(messages, tool_definitions)
-        
-        attempts = max_tool_iterations
-        while attempts > 0:
-            try:
-                stream_response = self._streaming(
-                    client=client,
-                    messages=current_messages,
-                    max_tokens=max_tokens,
-                    stream_function=stream_function,
-                    check_connection=check_connection,
-                    stream_params=stream_params,
-                    stream_response=stream_response,
-                    **kwargs
-                )
-                
-                if stream_response.is_detected_tool_call:
-                    parsed_tool_call = parse_tool_call_block(stream_response.detected_tool_call)
-                    if not parsed_tool_call:
-                        continue
-                        
-                    # Execute tool call
-                    tool_result = self.handle_tool_call(parsed_tool_call, tool_registry)
-                    
-                    # Add messages to history
-                    stream_response.add_message("assistant", stream_response.content)
-                    stream_response.add_tool_result(parsed_tool_call, tool_result)
-                    
-                    # Update messages for next iteration
-                    current_messages = stream_response.messages
-                    attempts -= 1
-                    continue
-                    
-                break
-                
-            except RetryableCustomError:
-                attempts -= 1
-                continue
-                
-        return stream_response
-
-    def handle_tool_call(self, tool_name: str, parameters: dict, tool_registry: t.Dict[str, ToolDefinition]) -> str:
-        """Handle a tool call by executing the corresponding function from the registry."""
-        tool_function = tool_registry.get(tool_name)
-        if not tool_function:
-            logger.warning(f"Tool '{tool_name}' not found in registry")
-            return json.dumps({"error": f"Tool '{tool_name}' is not available."})
-        try:
-            logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
-            result = tool_function.execution_function(**parameters)
-            logger.info(f"Tool '{tool_name}' executed successfully")
-            return json.dumps({"result": result})
-        except Exception as e:
-            logger.exception(f"Error executing tool '{tool_name}'", exc_info=e)
-            return json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(e)}"})
 
     def streaming(
         self,
@@ -217,6 +109,7 @@ class OpenAIModel(AIModel):
         """Process streaming response from OpenAI."""
         tool_call_started = False
         content = ""
+        
         try:
             call_kwargs = {
                 "messages": messages,
@@ -252,8 +145,10 @@ class OpenAIModel(AIModel):
                     stream_response.is_detected_tool_call = True
                     stream_response.detected_tool_call = content
                     break
+                    
             stream_response.content = content
             return stream_response
+            
         except Exception as e:
             stream_response.content = content
             logger.exception("Exception during stream processing", exc_info=e)

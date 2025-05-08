@@ -1,15 +1,14 @@
 import typing as t
 from dataclasses import dataclass, field
 from enum import Enum
-
+import logging
 from _decimal import Decimal
 
-from lamoom.ai_models.tools.base_tool import ToolDefinition
-from lamoom.responses import AIResponse
+from lamoom.ai_models.tools.base_tool import ToolDefinition, inject_tool_prompts, parse_tool_call_block
+from lamoom.responses import AIResponse, StreamingResponse
+from lamoom.exceptions import RetryableCustomError
 
-from logging import getLogger
-
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class AI_MODELS_PROVIDER(Enum):
     OPENAI = "openai"
@@ -36,179 +35,109 @@ class AIModel:
     def get_params(self) -> t.Dict[str, t.Any]:
         return {}
 
-    def call(self, *args, **kwargs) -> AIResponse:
-        raise NotImplementedError
-
     def get_metrics_data(self):
         return {}
 
+    def call(
+        self,
+        messages: t.List[t.Dict[str, str]],
+        max_tokens: t.Optional[int],
+        tool_registry: t.Dict[str, ToolDefinition] = {},
+        max_tool_iterations: int = 5,   # Safety limit for sequential calls
+        stream_function: t.Callable = None,
+        check_connection: t.Callable = None,
+        stream_params: dict = {},
+        client_secrets: dict = {},
+        **kwargs,
+    ) -> AIResponse:
+        """Common call implementation that handles streaming and tool calls."""
+        client = self.get_client(client_secrets)
+        tool_definitions = list(tool_registry.values())
+        
+        # Prepare streaming response
+        stream_response = StreamingResponse(
+            tool_registry=tool_registry,
+            messages=messages
+        )
+        
+        # Inject tool prompts into first message
+        current_messages = inject_tool_prompts(messages, tool_definitions)
+        
+        attempts = max_tool_iterations
+        while attempts > 0:
+            try:
+                stream_response = self.streaming(
+                    client=client,
+                    messages=current_messages,
+                    max_tokens=max_tokens,
+                    stream_function=stream_function,
+                    check_connection=check_connection,
+                    stream_params=stream_params,
+                    stream_response=stream_response,
+                    **kwargs
+                )
+                
+                if stream_response.is_detected_tool_call:
+                    parsed_tool_call = parse_tool_call_block(stream_response.detected_tool_call)
+                    if not parsed_tool_call:
+                        continue
+                        
+                    # Execute tool call
+                    tool_result = self.handle_tool_call(parsed_tool_call, tool_registry)
+                    
+                    # Add messages to history
+                    stream_response.add_message("assistant", stream_response.content)
+                    stream_response.add_tool_result(parsed_tool_call, tool_result)
+                    
+                    # Update messages for next iteration
+                    current_messages = stream_response.messages
+                    attempts -= 1
+                    continue
+                    
+                break
+                
+            except RetryableCustomError:
+                attempts -= 1
+                continue
+                
+        return stream_response
 
-    
-
-@dataclass(kw_only=True)
-class StreamResponse(AIResponse):
-    stream_function: t.Callable
-    check_connection: t.Callable
-    stream_params: dict
-    
-    client: AIModel
-    tool_registry: t.Dict[str, ToolDefinition]
-    max_tool_iterations: int
-    initial_call_kwargs: dict
-    initial_messages_history: t.List[dict]
-    first_response_to_user_ts: t.Optional[int] = None
-    exception: t.Optional[Exception] = None
-
-    # Internal state for the stream method
-    _current_messages_history: t.List[dict] = field(init=False, default_factory=list)
-    _total_accumulated_content: str = field(init=False, default="")
-    
-    def __post_init__(self):
-        self._current_messages_history = list(self.initial_messages_history)
-
-    def process_message(self, text: str, idx: int):
-        if idx % 5 == 0:
-            if not self.check_connection(**self.stream_params):
-                raise ConnectionLostError("Connection was lost!")
-        if not text:
-            return
-        self.stream_function(text, **self.stream_params)
-
-    def _handle_tool_call(self, tool_name: str, parameters: dict) -> str:
-        """Handle a tool call by executing the corresponding function from the MCP registry."""
-        tool_function = self.mcp_call_registry.get(tool_name)
+    def handle_tool_call(self, tool_call: dict, tool_registry: t.Dict[str, ToolDefinition]) -> str:
+        """Handle a tool call by executing the corresponding function from the registry."""
+        tool_name = tool_call.get("tool_name")
+        parameters = tool_call.get("parameters", {})
+        
+        tool_function = tool_registry.get(tool_name)
         if not tool_function:
-            logger.warning(f"Tool '{tool_name}' not found in MCP registry")
+            logger.warning(f"Tool '{tool_name}' not found in registry")
             return json.dumps({"error": f"Tool '{tool_name}' is not available."})
-
+            
         try:
-            logger.info(f"Executing MCP tool '{tool_name}' with parameters: {parameters}")
-            result = tool_function(**parameters)
-            logger.info(f"MCP tool '{tool_name}' executed successfully")
+            logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
+            result = tool_function.execution_function(**parameters)
+            logger.info(f"Tool '{tool_name}' executed successfully")
             return json.dumps({"result": result})
         except Exception as e:
-            logger.exception(f"Error executing MCP tool '{tool_name}'", exc_info=e)
+            logger.exception(f"Error executing tool '{tool_name}'", exc_info=e)
             return json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(e)}"})
 
-    def _process_stream_response(self, stream_iterator) -> t.Tuple[str, str, t.Optional[dict]]:
-        """Process a single streaming response from OpenAI.
-        
-        Returns:
-            Tuple of (content, stop_reason, detected_tool_call)
-        """
-        current_stream_part_content = ""
-        stream_stop_reason = None
-        detected_tool_call = None
-        stream_idx = 0
+    def streaming(
+        self,
+        client: t.Any,
+        messages: t.List[dict],
+        max_tokens: int,
+        stream_function: t.Callable,
+        check_connection: t.Callable,
+        stream_params: dict,
+        stream_response: StreamingResponse,
+        **kwargs
+    ) -> StreamingResponse:
+        """Process streaming response. Must be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement streaming method")
 
-        try:
-            logger.debug("Processing stream chunks...")
-            content = ""
-            for i, data in enumerate(self.original_result):
-                if not data.choices:
-                    continue
-                msg = data.choices[0]
-                delta = msg.delta
-                if delta:
-                    content += delta.content or ""
-                    self.process_message(delta.content, i)
+    def get_client(self, client_secrets: dict = {}) -> t.Any:
+        """Get the client instance. Must be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement get_client method")
 
-                if '</tool_call>' in delta:
-                    detected_tool_call = parse_tool_call_block(delta.content)
-                    if detected_tool_call:
-                        logger.info(f"Detected tool call: {detected_tool_call}")
-                        break
 
-                if 'content' in delta:
-                    if not first_response_to_user_ts:
-                        first_response_to_user_ts = curr_timestamp_in_ms()
-                        chat_stream_response.first_response_to_user_ts = (
-                            first_response_to_user_ts
-                        )
-                    generated_text = delta.content
-                    chat_stream_response.content += generated_text or ''
-                    process_messages(generated_text, i)
-
-                if message.choices and 'finish_reason' in message.choices[0]:
-                    finish_reason = message.choices[0].finish_reason
-                    chat_stream_response.message = {
-                        'role': 'assistant',
-                        'content': chat_stream_response.content,
-                    }
-                    chat_stream_response.finish_reason = finish_reason
-                    return chat_stream_response
-
-        except ConnectionLostError:
-            raise
-        except Exception as e:
-            logger.exception("Exception during stream processing", exc_info=e)
-            raise RetryableCustomError(f"OpenAI stream processing failed: {e}") from e
-
-        return current_stream_part_content, stream_stop_reason, detected_tool_call
-
-    def stream(self) -> t.Self:
-        """Process the stream, handle tool calls, and manage conversation history."""
-        iteration_count = 0
-        current_stream_iterator = self.original_result
-
-        while iteration_count < self.max_tool_iterations:
-            iteration_count += 1
-            logger.info(f"--- OpenAI Tool Streaming Iteration: {iteration_count} ---")
-
-            try:
-                current_stream_part_content, stream_stop_reason, detected_tool_call = self._process_stream_response(
-                    current_stream_iterator
-                )
-
-                # Add the raw assistant response to history
-                assistant_message = {"role": "assistant", "content": current_stream_part_content}
-                self._current_messages_history.append(assistant_message)
-
-                if detected_tool_call:
-                    tool_name = detected_tool_call.get("tool_name")
-                    parameters = detected_tool_call.get("parameters", {})
-                    
-                    # Execute the tool and get result
-                    tool_result_str = self._handle_tool_call(tool_name, parameters)
-                    
-                    # Add tool result to history
-                    tool_result_message = format_tool_result_message(tool_name, tool_result_str)
-                    self._current_messages_history.append(tool_result_message)
-
-                    # Make a new streaming call with updated history
-                    logger.info("Restarting stream after tool execution")
-                    new_call_kwargs = {
-                        **self.initial_call_kwargs,
-                        "messages": self._current_messages_history,
-                        "stream": True,
-                    }
-                    current_stream_iterator = self.client.chat.completions.create(**new_call_kwargs)
-                    continue
-
-                # No tool call found - finish streaming
-                self._total_accumulated_content = current_stream_part_content
-                self.finish_reason = stream_stop_reason or "stop"
-                break
-
-            except ConnectionLostError as cle:
-                logger.error("Connection lost during stream processing", exc_info=cle)
-                self.finish_reason = "error_connection_lost"
-                raise cle
-            except Exception as e:
-                logger.exception("Exception during stream processing", exc_info=e)
-                self.finish_reason = "error_processing_stream"
-                raise_openai_exception(e)
-
-        if iteration_count >= self.max_tool_iterations:
-            logger.warning(f"Reached maximum tool call iterations ({self.max_tool_iterations})")
-            self.finish_reason = "error_max_tool_iterations"
-
-        # Set final response fields
-        self.content = self._total_accumulated_content
-        self.message = Message(
-            content=self.content,
-            role="assistant"
-        )
-
-        logger.debug(f"Stream processing complete. Final finish reason: {self.finish_reason}")
-        return self
+  

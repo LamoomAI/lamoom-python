@@ -1,16 +1,14 @@
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
+import typing as t
+from dataclasses import dataclass
+import json
 
 from lamoom.ai_models.claude.constants import HAIKU, SONNET, OPUS
 from lamoom.ai_models.constants import C_4K
-from lamoom.responses import AIResponse
-from lamoom.ai_models.tools.base_tool import ToolDefinition, handle_tool_call, inject_tool_prompts
+from lamoom.responses import AIResponse, StreamingResponse
+from lamoom.ai_models.tools.base_tool import ToolDefinition
 from enum import Enum
-
-import typing as t
-from dataclasses import dataclass
-
-from lamoom.ai_models.utils import get_common_args
 
 from lamoom.exceptions import RetryableCustomError, ConnectionLostError
 import anthropic
@@ -49,7 +47,7 @@ class ClaudeAIModel(AIModel):
     def get_client(self, client_secrets: dict) -> anthropic.Anthropic:
         return anthropic.Anthropic(api_key=client_secrets.get("api_key"))
 
-    def uny_all_messages_with_same_role(self, messages: t.List[dict]) -> t.List[dict]:
+    def unify_messages_with_same_role(self, messages: t.List[dict]) -> t.List[dict]:
         result = []
         last_role = None
         for message in messages:
@@ -62,148 +60,66 @@ class ClaudeAIModel(AIModel):
                 result[-1]["content"] += message.get("content")
         return result
 
-    def _process_stream_response(self, 
-                               client: anthropic.Anthropic,
-                               current_messages_history: t.List[dict],
-                               max_tokens: int,
-                               stream_function: t.Callable,
-                               check_connection: t.Callable,
-                               stream_params: dict,
-                               tool_registry: t.Dict[str, ToolDefinition]) -> t.Tuple[str, str, bool]:
-        """Process a single streaming response from Claude.
+    def streaming(
+        self,
+        client: anthropic.Anthropic,
+        messages: t.List[dict],
+        max_tokens: int,
+        stream_function: t.Callable,
+        check_connection: t.Callable,
+        stream_params: dict,
+        stream_response: StreamingResponse,
+        **kwargs
+    ) -> StreamingResponse:
+        """Process streaming response from Claude."""
+        tool_call_started = False
+        content = ""
         
-        Args:
-            client: Anthropic client instance
-            current_messages_history: Current conversation history
-            max_tokens: Maximum tokens to generate
-            system_prompt: Optional system prompt
-            stream_function: Function to call for each text chunk
-            check_connection: Function to check connection status
-            stream_params: Parameters for stream function
-            tool_registry: Registry of available MCP functions
-            
-        Returns:
-            Tuple of (content, stop_reason, has_tool_call)
-        """
-        current_stream_part_content = ""
-        stream_stop_reason = None
-        detected_tool_call = None
-        
-        call_kwargs = {
-            "model": self.model,
-            "max_tokens": max_tokens,
-            "messages": current_messages_history,
-        }
-        system_prompt = []
-        for i, msg in enumerate(current_messages_history):
-            if msg.get('role') == "system":
-                system_prompt += [current_messages_history.pop(i - len(system_prompt)).get('content')]
-        
-        if system_prompt:
-            call_kwargs["system"] = '\n'.join(system_prompt)
-
-        stream_idx = 0
         try:
-            logger.debug(f"Initiating Claude stream. History length: {len(current_messages_history)}")
-            with client.messages.stream(**call_kwargs) as stream_handler:
-                current_stream_part_content = ''
-                for text_chunk in stream_handler.text_stream:
-                    stream_idx += 1
-                    if check_connection and stream_idx % 5 == 0 and not check_connection(**stream_params):
+            # Prepare messages for Claude
+            unified_messages = self.unify_messages_with_same_role(messages)
+            
+            call_kwargs = {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "messages": unified_messages,
+                **kwargs
+            }
+            
+            # Extract system prompt if present
+            system_prompt = []
+            for i, msg in enumerate(unified_messages):
+                if msg.get('role') == "system":
+                    system_prompt.append(unified_messages.pop(i- len(system_prompt)).get('content'))
+            
+            if system_prompt:
+                call_kwargs["system"] = '\n'.join(system_prompt)
+            
+            with client.messages.stream(**call_kwargs) as stream:
+                for text_chunk in stream.text_stream:
+                    if check_connection and not check_connection(**stream_params):
                         raise ConnectionLostError("Connection was lost!")
-                    
-                    current_stream_part_content += text_chunk
-                    if stream_function and text_chunk:
+                        
+                    content += text_chunk
+                    if stream_function:
                         stream_function(text_chunk, **stream_params)
                         
-                    # Check for tool call after each chunk
-                    detected_tool_call = handle_tool_call(
-                        current_stream_part_content, tool_registry
-                    )
-                    if detected_tool_call:
-                        logger.info(f'Found tool {detected_tool_call} in the response')
-                        break  # Stop streaming when tool call is detected
-
-                if not detected_tool_call:
-                    final_message_status = stream_handler.get_final_message()
-                    stream_stop_reason = final_message_status.stop_reason
-                    logger.debug(f"Claude stream part finished. Stop Reason: {stream_stop_reason}")
-
-                else:
-                    current_messages_history.append(
-                        {"role": "assistant", "content": current_stream_part_content + detected_tool_call.execution_result}
-                    )
-        except ConnectionLostError:
-            raise
-        except anthropic.APIError as e:
-            logger.exception("[CLAUDEAI] API Error during stream processing", exc_info=e)
-            raise RetryableCustomError(f"Claude AI API Error: {e}") from e
-        except Exception as e:
-            logger.exception("Exception during Claude stream processing", exc_info=e)
-            raise RetryableCustomError(f"Claude AI stream processing failed: {e}") from e
-
-        return current_stream_part_content, stream_stop_reason, detected_tool_call
-
-
-    def call(self, 
-            messages: t.List[dict], 
-            max_tokens: int, 
-            client_secrets: dict = {}, 
-            tool_registry: t.Dict[str, ToolDefinition] = {},
-            max_tool_iterations: int = 5,   # Safety limit for sequential calls
-            **kwargs) -> AIResponse:
-        max_tokens = min(max_tokens, self.max_tokens)
-        
-        common_args = get_common_args(max_tokens)
-        kwargs = {
-            **common_args,
-            **self.get_params(),
-            **kwargs,
-        }
-        
-        # Inject Tool Prompts into initial messages
-        current_messages_history = inject_tool_prompts(messages, list(tool_registry.values()))
-        
+                    # Check for tool call markers
+                    if tool_call_started and "</tool_call>" in content:
+                        stream_response.is_detected_tool_call = True
+                        stream_response.detected_tool_call = content
+                        break
+                    if "<tool_call>" in content:
+                        if not tool_call_started:
+                            tool_call_started = True
+                        continue
+            stream_response.content = content
+            return stream_response
             
-        logger.debug(
-            f"Calling {current_messages_history} with max_tokens {max_tokens} and kwargs {kwargs}"
-        )
-        client = self.get_client(client_secrets)
-
-        stream_function = kwargs.get("stream_function")
-        check_connection = kwargs.get("check_connection")
-        stream_params = kwargs.get("stream_params")
-
-        content = ""
-        iteration_count = 0
-        while iteration_count < max_tool_iterations:
-            iteration_count += 1
-            try:
-                logger.info(f"--- Custom Claude Tool Streaming Iteration: {iteration_count} ---")
-
-                current_stream_part_content, stream_stop_reason, detected_tool_call = self._process_stream_response(
-                    client, current_messages_history, max_tokens,
-                    stream_function, check_connection, stream_params, tool_registry
-                )
-
-                # Add the raw assistant response to history *before* parsing
-                assistant_message_to_add = {"role": "assistant", "content": current_stream_part_content}
-                current_messages_history.append(assistant_message_to_add)
-
-                if detected_tool_call:
-                    logger.info(f'Found {detected_tool_call}')
-                    continue
-
-                # --- No Tool Call Found in this stream part ---
-                content += current_stream_part_content
-                if stream_stop_reason == "end_turn":
-                    break
-            except Exception as e:
-                logger.exception("Exception during Claude API call", exc_info=e)
-                raise RetryableCustomError(f"Claude AI API call failed: {e}") from e
-
-        logger.info(f"Returning: {content}")
-        return AIResponse(content=content)
+        except Exception as e:
+            stream_response.content = content
+            logger.exception("Exception during stream processing", exc_info=e)
+            raise RetryableCustomError(f"Claude AI stream processing failed: {e}") from e
 
     @property
     def name(self) -> str:
