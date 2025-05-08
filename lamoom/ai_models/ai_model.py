@@ -86,10 +86,10 @@ class AIModel:
                     logger.info(f'executed parsed_tool_call {parsed_tool_call}')
                     stream_response.add_message("assistant", stream_response.content)
                     stream_response.add_tool_result(parsed_tool_call)
-                    logger.info(f'Added message {stream_response.messages}')
-                    # Update messages for next iteration
                     attempts -= 1
+                    logger.info(f'Left attempts: {attempts}, Added message {stream_response.messages[-1]}')
                     continue
+                logger.info(f'Passing execution, finished')
                 break
             except RetryableCustomError:
                 attempts -= 1

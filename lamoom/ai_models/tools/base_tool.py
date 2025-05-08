@@ -7,9 +7,11 @@ import re
 
 logger = logging.getLogger(__name__)
 
+TOOL_CALL_NAME = 'tool_call'
+TOOL_CALL_RESULT_NAME = 'tool_call_result'
 # --- Constants for Prompting ---
-TOOL_CALL_START_TAG = "<tool_call>"
-TOOL_CALL_END_TAG = "</tool_call>"
+TOOL_CALL_START_TAG = f"<{TOOL_CALL_NAME}>"
+TOOL_CALL_END_TAG = f"</{TOOL_CALL_NAME}>"
 
 
 def get_tool_system_prommpt(tool_descriptions: str):

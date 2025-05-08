@@ -86,7 +86,7 @@ class WebCall:
             formatted += f"URL: {result.url}\n"
             formatted += f"Snippet: {result.snippet}\n"
             formatted += f"Content: {result.content[:500]}...\n"
-            formatted += '</result_{i}>'
+            formatted += f'</result_{i}>'
         logger.debug(f"Adding into LLM context\n:{formatted}")
         return formatted
     

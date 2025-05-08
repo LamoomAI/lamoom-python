@@ -11,7 +11,7 @@ from lamoom.ai_models.constants import C_128K, C_16K, C_32K, C_4K
 from lamoom.ai_models.openai.responses import OpenAIResponse, StreamingResponse
 from lamoom.ai_models.utils import get_common_args
 from lamoom.exceptions import ConnectionLostError, RetryableCustomError
-from lamoom.ai_models.tools.base_tool import ToolDefinition, inject_tool_prompts, parse_tool_call_block
+from lamoom.ai_models.tools.base_tool import TOOL_CALL_END_TAG, TOOL_CALL_START_TAG, ToolDefinition, inject_tool_prompts, parse_tool_call_block
 import json
 
 from openai.types.chat import ChatCompletionMessage as Message
@@ -118,36 +118,36 @@ class OpenAIModel(AIModel):
             }
             if max_tokens:
                 call_kwargs["max_completion_tokens"] = min(max_tokens, self.max_sample_budget)
-            
-            for part in client.chat.completions.create(**call_kwargs):
+            completion = client.chat.completions.create(**call_kwargs)
+            for part in completion:
                 if not part.choices:
                     continue
                     
                 delta = part.choices[0].delta
                 if part.choices and 'finish_reason' in part.choices[0]:
+                    logger.info(f'Finish reason: {part.choices[0].finish_reason}')
                     stream_response.finish_reason = part.choices[0].finish_reason
+
+                # Check for tool call markers
+                if TOOL_CALL_START_TAG in content and not tool_call_started:
+                    tool_call_started = True
+                    logger.info(f'tool_call_started: {tool_call_started}')
+
                 if not delta:
                     continue
-                    
-                if delta.content:
-                    content += delta.content
-                    if stream_function:
-                        stream_function(delta.content, **stream_params)
-                        
-                if check_connection and not check_connection(**stream_params):
-                    raise ConnectionLostError("Connection was lost!")
-                    
-                # Check for tool call markers
-                if "<tool_call>" in content:
-                    if not tool_call_started:
-                        tool_call_started = True
-                    continue
-                    
-                if tool_call_started and "</tool_call>" in content:
+                content += delta.content
+                if stream_function:
+                    stream_function(delta.content, **stream_params)
+
+                logger.debug(f'{delta.content}')
+                if tool_call_started and TOOL_CALL_END_TAG in content:
+                    logger.info(f'tool_call_ended: {content}')
                     stream_response.is_detected_tool_call = True
                     stream_response.content = content
                     break
-                    
+                if check_connection and not check_connection(**stream_params):
+                    raise ConnectionLostError("Connection was lost!")
+
             stream_response.content = content
             return stream_response
             

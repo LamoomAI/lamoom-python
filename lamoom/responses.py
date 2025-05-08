@@ -3,7 +3,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 import typing as t
-from lamoom.ai_models.tools.base_tool import ToolCallResult, ToolDefinition, format_tool_result_message
+from lamoom.ai_models.tools.base_tool import TOOL_CALL_NAME, TOOL_CALL_RESULT_NAME, ToolCallResult, ToolDefinition, format_tool_result_message
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class StreamingResponse(AIResponse):
     
     def add_tool_result(self, tool_result: ToolCallResult):
         logger.info(f'TOOL_CALL: Added tool results {tool_result}')
-        self.content +=f'<tool_call="{tool_result.tool_name}">\n{json.dumps(tool_result.tool_name)}\n</tool_call>'
+        self.content +=f'\n<{TOOL_CALL_RESULT_NAME}="{tool_result.tool_name}">\n{json.dumps(tool_result.tool_name)}\n</{TOOL_CALL_RESULT_NAME}>\n'
         self.content += format_tool_result_message(tool_result)
         self.add_message("assistant", self.content)
 
