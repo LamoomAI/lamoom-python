@@ -6,13 +6,9 @@ from dataclasses import dataclass, field
 from openai.types.chat import ChatCompletionMessage as Message
 from openai.types.chat import ChatCompletionMessageToolCall as ToolCall
 
-from lamoom.responses import AIResponse
+from lamoom.responses import FINISH_REASON_LENGTH, FINISH_REASON_TOOL_CALLS, AIResponse
 from lamoom.ai_models.tools.base_tool import ToolDefinition
 
-FINISH_REASON_LENGTH = "length"
-FINISH_REASON_ERROR = "error"
-FINISH_REASON_FINISH = "stop"
-FINISH_REASON_TOOL_CALLS = "tool_calls"
 
 logger = logging.getLogger(__name__)
 
@@ -20,19 +16,11 @@ logger = logging.getLogger(__name__)
 @dataclass(kw_only=True)
 class StreamingResponse(AIResponse):
     is_detected_tool_call: bool = False
-    detected_tool_call: t.Optional[dict] = None
     tool_registry: t.Dict[str, ToolDefinition] = field(default_factory=dict)
     messages: t.List[dict] = field(default_factory=list)
     
     def add_message(self, role: str, content: str):
         self.messages.append({"role": role, "content": content})
-    
-    def add_tool_result(self, tool_name: str, result: str):
-        self.messages.append({
-            "role": "tool",
-            "name": tool_name,
-            "content": result
-        })
 
 
 @dataclass(kw_only=True)

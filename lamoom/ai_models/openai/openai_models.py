@@ -15,7 +15,7 @@ from lamoom.ai_models.tools.base_tool import ToolDefinition, inject_tool_prompts
 import json
 
 from openai.types.chat import ChatCompletionMessage as Message
-from lamoom.responses import Prompt
+from lamoom.responses import FINISH_REASON_ERROR, Prompt
 
 from .utils import raise_openai_exception
 
@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 class FamilyModel(Enum):
     chat = "GPT-3.5"
     gpt4 = "GPT-4"
-    gpt4o = "GPT-4o"
-    gpt4o_mini = "GPT-4o-mini"
+    gpt4o = "o4-mini"
+    gpt4o_mini = "o4-mini-mini"
     instruct_gpt = "InstructGPT"
 
 BASE_URL_MAPPING = {
@@ -55,9 +55,9 @@ class OpenAIModel(AIModel):
             self.family = FamilyModel.instruct_gpt.value
         elif self.model.startswith("gpt-3"):
             self.family = FamilyModel.chat.value
-        elif self.model.startswith("gpt-4o-mini"):
+        elif self.model.startswith("o4-mini-mini"):
             self.family = FamilyModel.gpt4o_mini.value
-        elif self.model.startswith("gpt-4o"):
+        elif self.model.startswith("o4-mini"):
             self.family = FamilyModel.gpt4o.value
         elif self.model.startswith(("gpt4", "gpt-4", "gpt")):
             self.family = FamilyModel.gpt4.value
@@ -98,12 +98,11 @@ class OpenAIModel(AIModel):
     def streaming(
         self,
         client: OpenAI,
-        messages: t.List[dict],
+        stream_response: StreamingResponse,
         max_tokens: int,
         stream_function: t.Callable,
         check_connection: t.Callable,
         stream_params: dict,
-        stream_response: StreamingResponse,
         **kwargs
     ) -> StreamingResponse:
         """Process streaming response from OpenAI."""
@@ -112,18 +111,21 @@ class OpenAIModel(AIModel):
         
         try:
             call_kwargs = {
-                "messages": messages,
-                "max_tokens": max_tokens,
+                "messages": stream_response.messages,
                 "stream": True,
                 **self.get_params(),
                 **kwargs
             }
+            if max_tokens:
+                call_kwargs["max_completion_tokens"] = min(max_tokens, self.max_sample_budget)
             
             for part in client.chat.completions.create(**call_kwargs):
                 if not part.choices:
                     continue
                     
                 delta = part.choices[0].delta
+                if part.choices and 'finish_reason' in part.choices[0]:
+                    stream_response.finish_reason = part.choices[0].finish_reason
                 if not delta:
                     continue
                     
@@ -143,7 +145,7 @@ class OpenAIModel(AIModel):
                     
                 if tool_call_started and "</tool_call>" in content:
                     stream_response.is_detected_tool_call = True
-                    stream_response.detected_tool_call = content
+                    stream_response.content = content
                     break
                     
             stream_response.content = content
@@ -151,5 +153,6 @@ class OpenAIModel(AIModel):
             
         except Exception as e:
             stream_response.content = content
+            stream_response.finish_reason = FINISH_REASON_ERROR
             logger.exception("Exception during stream processing", exc_info=e)
             raise RetryableCustomError(f"OpenAI stream processing failed: {e}") from e

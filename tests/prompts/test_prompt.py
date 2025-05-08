@@ -15,7 +15,7 @@ def azure_ai_attempt():
     return AttemptToCall(
         ai_model=AzureAIModel(
             realm='useast',
-            deployment_id="gpt-4o",
+            deployment_id="o4-mini",
             max_tokens=C_128K,
             support_functions=True,
         ),

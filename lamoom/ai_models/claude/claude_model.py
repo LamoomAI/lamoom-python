@@ -2,12 +2,11 @@ from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
 import typing as t
 from dataclasses import dataclass
-import json
 
 from lamoom.ai_models.claude.constants import HAIKU, SONNET, OPUS
 from lamoom.ai_models.constants import C_4K
-from lamoom.responses import AIResponse, StreamingResponse
-from lamoom.ai_models.tools.base_tool import ToolDefinition
+from lamoom.responses import FINISH_REASON_ERROR, FINISH_REASON_FINISH, StreamingResponse
+from lamoom.ai_models.tools.base_tool import TOOL_CALL_END_TAG, TOOL_CALL_START_TAG
 from enum import Enum
 
 from lamoom.exceptions import RetryableCustomError, ConnectionLostError
@@ -63,21 +62,21 @@ class ClaudeAIModel(AIModel):
     def streaming(
         self,
         client: anthropic.Anthropic,
-        messages: t.List[dict],
+        stream_response: StreamingResponse,
         max_tokens: int,
         stream_function: t.Callable,
         check_connection: t.Callable,
         stream_params: dict,
-        stream_response: StreamingResponse,
         **kwargs
     ) -> StreamingResponse:
         """Process streaming response from Claude."""
         tool_call_started = False
         content = ""
+        stream_response.finish_reason = FINISH_REASON_FINISH
         
         try:
             # Prepare messages for Claude
-            unified_messages = self.unify_messages_with_same_role(messages)
+            unified_messages = self.unify_messages_with_same_role(stream_response.messages)
             
             call_kwargs = {
                 "model": self.model,
@@ -105,11 +104,12 @@ class ClaudeAIModel(AIModel):
                         stream_function(text_chunk, **stream_params)
                         
                     # Check for tool call markers
-                    if tool_call_started and "</tool_call>" in content:
+                    if tool_call_started and TOOL_CALL_END_TAG in content:
                         stream_response.is_detected_tool_call = True
-                        stream_response.detected_tool_call = content
+                        stream_response.content = content
+                        logger.info(f'Found tool call request in {content}')
                         break
-                    if "<tool_call>" in content:
+                    if TOOL_CALL_START_TAG in content:
                         if not tool_call_started:
                             tool_call_started = True
                         continue
@@ -118,6 +118,7 @@ class ClaudeAIModel(AIModel):
             
         except Exception as e:
             stream_response.content = content
+            stream_response.finish_reason = FINISH_REASON_ERROR
             logger.exception("Exception during stream processing", exc_info=e)
             raise RetryableCustomError(f"Claude AI stream processing failed: {e}") from e
 

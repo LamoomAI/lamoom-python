@@ -132,7 +132,7 @@ For Azure models format is the following:
 `"azure/{realm}/{model_name}"`
 
 ```python
-response_llm = client.call(agent.id, context, model = "openai/gpt-4o")
+response_llm = client.call(agent.id, context, model = "openai/o4-mini")
 response_llm = client.call(agent.id, context, model = "azure/useast/gpt-4o")
 ```
 
@@ -141,7 +141,7 @@ Custom model string format is the following:
 `provider_url` is required
 
 ```python
-response_llm = client.call(agent.id, context, model = "custom/gpt-4o", provider_url = "your_model_url")
+response_llm = client.call(agent.id, context, model = "custom/o4-mini", provider_url = "your_model_url")
 ```
 
 ### Lamoom Keys
@@ -169,14 +169,14 @@ prompt.add("You're {name}. Say Hello and ask what's their name.", role="system")
 
 # Call AI model with Lamoom
 context = {"name": "John Doe"}
-response = client.call(prompt.id, context, "openai/gpt-4o")
+response = client.call(prompt.id, context, "openai/o4-mini")
 print(response.content)
 ```
 
 ### Creating Tests While Using Prompts
 ```python
 # Call with test_data to automatically generate tests
-response = client.call(prompt.id, context, "openai/gpt-4o", test_data={
+response = client.call(prompt.id, context, "openai/o4-mini", test_data={
     'ideal_answer': "Hello, I'm John Doe. What's your name?", 
     'model_name': "gemini/gemini-1.5-flash"
 })

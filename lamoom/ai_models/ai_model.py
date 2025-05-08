@@ -1,10 +1,11 @@
+import json
 import typing as t
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 import logging
 from _decimal import Decimal
 
-from lamoom.ai_models.tools.base_tool import ToolDefinition, inject_tool_prompts, parse_tool_call_block
+from lamoom.ai_models.tools.base_tool import ToolCallResult, ToolDefinition, inject_tool_prompts, parse_tool_call_block
 from lamoom.responses import AIResponse, StreamingResponse
 from lamoom.exceptions import RetryableCustomError
 
@@ -53,59 +54,53 @@ class AIModel:
         """Common call implementation that handles streaming and tool calls."""
         client = self.get_client(client_secrets)
         tool_definitions = list(tool_registry.values())
-        
+        # Inject tool prompts into first message
+        current_messages = inject_tool_prompts(messages, tool_definitions)
         # Prepare streaming response
         stream_response = StreamingResponse(
             tool_registry=tool_registry,
-            messages=messages
+            messages=current_messages
         )
-        
-        # Inject tool prompts into first message
-        current_messages = inject_tool_prompts(messages, tool_definitions)
-        
         attempts = max_tool_iterations
         while attempts > 0:
             try:
                 stream_response = self.streaming(
                     client=client,
-                    messages=current_messages,
+                    stream_response=stream_response,
                     max_tokens=max_tokens,
                     stream_function=stream_function,
                     check_connection=check_connection,
                     stream_params=stream_params,
-                    stream_response=stream_response,
                     **kwargs
                 )
-                
+                logger.info(f'stream_response: {stream_response}')
                 if stream_response.is_detected_tool_call:
-                    parsed_tool_call = parse_tool_call_block(stream_response.detected_tool_call)
+                    logger.info(f'is_detected_tool_call')
+                    parsed_tool_call = parse_tool_call_block(stream_response.content)
+                    logger.info(f'parsed_tool_call {parsed_tool_call}')
                     if not parsed_tool_call:
                         continue
-                        
                     # Execute tool call
-                    tool_result = self.handle_tool_call(parsed_tool_call, tool_registry)
-                    
+                    self.handle_tool_call(parsed_tool_call, tool_registry)
                     # Add messages to history
+                    logger.info(f'executed parsed_tool_call {parsed_tool_call}')
                     stream_response.add_message("assistant", stream_response.content)
-                    stream_response.add_tool_result(parsed_tool_call, tool_result)
-                    
+                    stream_response.add_tool_result(parsed_tool_call)
+                    logger.info(f'Added message {stream_response.messages}')
                     # Update messages for next iteration
-                    current_messages = stream_response.messages
                     attempts -= 1
                     continue
-                    
                 break
-                
             except RetryableCustomError:
                 attempts -= 1
-                continue
-                
+                continue                
         return stream_response
 
-    def handle_tool_call(self, tool_call: dict, tool_registry: t.Dict[str, ToolDefinition]) -> str:
+
+    def handle_tool_call(self, tool_call: ToolCallResult, tool_registry: t.Dict[str, ToolDefinition]) -> str:
         """Handle a tool call by executing the corresponding function from the registry."""
-        tool_name = tool_call.get("tool_name")
-        parameters = tool_call.get("parameters", {})
+        tool_name = tool_call.tool_name
+        parameters = tool_call.parameters
         
         tool_function = tool_registry.get(tool_name)
         if not tool_function:
@@ -116,20 +111,22 @@ class AIModel:
             logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
             result = tool_function.execution_function(**parameters)
             logger.info(f"Tool '{tool_name}' executed successfully")
+            tool_call.execution_result = result
             return json.dumps({"result": result})
         except Exception as e:
-            logger.exception(f"Error executing tool '{tool_name}'", exc_info=e)
-            return json.dumps({"error": f"Failed to execute tool '{tool_name}': {str(e)}"})
+            result = f"Error executing tool '{tool_name}'"
+            logger.exception(result, exc_info=e)
+            tool_call.execution_result = result
+            return json.dumps({"error": f"{result}: {str(e)}"})
 
     def streaming(
         self,
         client: t.Any,
-        messages: t.List[dict],
+        stream_response: StreamingResponse,
         max_tokens: int,
         stream_function: t.Callable,
         check_connection: t.Callable,
         stream_params: dict,
-        stream_response: StreamingResponse,
         **kwargs
     ) -> StreamingResponse:
         """Process streaming response. Must be implemented by subclasses."""
@@ -138,6 +135,3 @@ class AIModel:
     def get_client(self, client_secrets: dict = {}) -> t.Any:
         """Get the client instance. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement get_client method")
-
-
-  

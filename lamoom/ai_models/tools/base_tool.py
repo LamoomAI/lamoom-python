@@ -100,15 +100,11 @@ def parse_tool_call_block(text_response: str) -> t.Optional[ToolCallResult]:
 
     # Regex to find the block, allowing for whitespace variations
     # DOTALL allows '.' to match newlines within the JSON block
-    match = re.search(
-        rf"{re.escape(TOOL_CALL_START_TAG)}(.*?){re.escape(TOOL_CALL_END_TAG)}",
-        text_response,
-        re.DOTALL | re.IGNORECASE
-    )
+    json_content = text_response[text_response.find(
+        TOOL_CALL_START_TAG) + len(TOOL_CALL_START_TAG): text_response.rfind(TOOL_CALL_END_TAG)]
+    if '```' in json_content.split('\n'):
+        json_content = '\n'.join(json_content.split('\n')[1:-1])
 
-    if not match:
-        return None
-    json_content = match.group(1).strip()
     logger.debug(f"Found potential tool call JSON block: {json_content}")
 
     try:
@@ -188,11 +184,9 @@ def handle_tool_call(current_stream_part_content, tool_registry) -> ToolCallResu
     )
 
 
-def format_tool_result_message(tool_name, tool_result_str):
+def format_tool_result_message(tool_result: ToolCallResult):
     return f'''
-<tool_call_result>{{
-"tool_name": "{tool_name}",
-"parameters": "{tool_result_str}"
-}}
+<tool_call_result tool_name="{tool_result.tool_name}">
+{tool_result.execution_result}
 <tool_call_result>
 '''
