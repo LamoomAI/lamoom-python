@@ -66,7 +66,6 @@ class ClaudeAIModel(AIModel):
                                client: anthropic.Anthropic,
                                current_messages_history: t.List[dict],
                                max_tokens: int,
-                               system_prompt: t.Optional[str],
                                stream_function: t.Callable,
                                check_connection: t.Callable,
                                stream_params: dict,
@@ -81,7 +80,7 @@ class ClaudeAIModel(AIModel):
             stream_function: Function to call for each text chunk
             check_connection: Function to check connection status
             stream_params: Parameters for stream function
-            mcp_call_registry: Registry of available MCP functions
+            tool_registry: Registry of available MCP functions
             
         Returns:
             Tuple of (content, stop_reason, has_tool_call)
@@ -95,9 +94,13 @@ class ClaudeAIModel(AIModel):
             "max_tokens": max_tokens,
             "messages": current_messages_history,
         }
+        system_prompt = []
+        for i, msg in enumerate(current_messages_history):
+            if msg.get('role') == "system":
+                system_prompt += [current_messages_history.pop(i - len(system_prompt)).get('content')]
         
         if system_prompt:
-            call_kwargs["system"] = system_prompt
+            call_kwargs["system"] = '\n'.join(system_prompt)
 
         stream_idx = 0
         try:
@@ -130,8 +133,6 @@ class ClaudeAIModel(AIModel):
                     current_messages_history.append(
                         {"role": "assistant", "content": current_stream_part_content + detected_tool_call.execution_result}
                     )
-                
-                    
         except ConnectionLostError:
             raise
         except anthropic.APIError as e:
@@ -163,10 +164,6 @@ class ClaudeAIModel(AIModel):
         # Inject Tool Prompts into initial messages
         current_messages_history = inject_tool_prompts(messages, list(tool_registry.values()))
         
-        system_prompt = None
-        if current_messages_history and current_messages_history[0].get('role') == "system":
-            system_prompt = current_messages_history[0].get('content')
-            current_messages_history = current_messages_history[1:]
             
         logger.debug(
             f"Calling {current_messages_history} with max_tokens {max_tokens} and kwargs {kwargs}"
@@ -185,7 +182,7 @@ class ClaudeAIModel(AIModel):
                 logger.info(f"--- Custom Claude Tool Streaming Iteration: {iteration_count} ---")
 
                 current_stream_part_content, stream_stop_reason, detected_tool_call = self._process_stream_response(
-                    client, current_messages_history, max_tokens, system_prompt,
+                    client, current_messages_history, max_tokens,
                     stream_function, check_connection, stream_params, tool_registry
                 )
 
