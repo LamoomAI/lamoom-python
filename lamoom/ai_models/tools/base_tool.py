@@ -15,12 +15,18 @@ TOOL_CALL_END_TAG = f"</{TOOL_CALL_NAME}>"
 
 
 def get_tool_system_prommpt(tool_descriptions: str):
-    return  f"""You have next skills:
+    return  f"""You have next tools:
 ```
 {tool_descriptions}
 ```
+# Tool calling procedure
 
-If you wish to make a call you need to make a call:
+Before calling any tool, please follow procedure. You're doing unnecessary calls of tools. Make a mindset of what you need to do.
+## 1. Think out loud what you need to do
+## 2. Provide 5 whys;
+## 3. Call a tool;
+
+If you need to use a tool, use the next format:
 ```
 """ + TOOL_CALL_START_TAG + """
 {
@@ -70,6 +76,7 @@ def inject_tool_prompts(
     ) -> t.List[dict]:
     """Injects tool descriptions and usage instructions into the system prompt."""
     if not available_tools:
+        logger.debug("[inject_tool_prompts] No tools available. Returning original messages.")
         return messages
 
     tool_descriptions = "\n".join([format_tool_description(tool) for tool in available_tools])
@@ -81,6 +88,7 @@ def inject_tool_prompts(
         if msg.get("role") == "system":
             # Append to existing system prompt
             modified_messages[i]["content"] = f"{msg.get('content', '')}\n\n{tool_system_prompt}"
+            logger.debug(f"[inject_tool_prompts] Injected tool system prompt:\n{modified_messages[i]['content']}")
             found_system = True
             break
 
@@ -88,7 +96,7 @@ def inject_tool_prompts(
         # Prepend a new system message
         modified_messages.insert(0, {"role": "system", "content": tool_system_prompt})
 
-    logger.debug(f"Injected tool system prompt:\n{tool_system_prompt}")
+        logger.debug(f"[inject_tool_prompts] Msg not found. Injected tool system prompt as a first msg :\n{tool_system_prompt}")
     return modified_messages
 
 
@@ -187,8 +195,4 @@ def handle_tool_call(current_stream_part_content, tool_registry) -> ToolCallResu
 
 
 def format_tool_result_message(tool_result: ToolCallResult):
-    return f'''
-<tool_call_result tool_name="{tool_result.tool_name}">
-{tool_result.execution_result}
-<tool_call_result>
-'''
+    return f'\n<{TOOL_CALL_RESULT_NAME}="{tool_result.tool_name}">\n{json.dumps(tool_result.execution_result)}\n</{TOOL_CALL_RESULT_NAME}>\n## Please, Analyze tool_call_result! Answer next using the provided response from the user'

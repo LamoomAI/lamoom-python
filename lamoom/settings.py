@@ -34,6 +34,7 @@ CACHE_PROMPT_FOR_EACH_SECONDS = int(
 RECEIVE_PROMPT_FROM_SERVER = parse_bool(
     os.environ.get("LAMOOM_RECEIVE_PROMPT_FROM_SERVER", True)
 )
+SHOULD_INCLUDE_REASONING = parse_bool(os.environ.get("SHOULD_INCLUDE_REASONING", True))
 PIPE_PROMPTS = {}
 FALLBACK_MODELS = []
 
@@ -45,6 +46,7 @@ class Secrets:
     CLAUDE_API_KEY: str = field(default_factory=lambda: os.getenv("CLAUDE_API_KEY"))
     GEMINI_API_KEY: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
     NEBIUS_API_KEY: str = field(default_factory=lambda: os.getenv("NEBIUS_API_KEY"))
+    OPENROUTER_KEY: str = field(default_factory=lambda: os.getenv("OPENROUTER_KEY"))
     CUSTOM_API_KEY: str = field(default_factory=lambda: os.getenv("CUSTOM_API_KEY"))
     OPENAI_ORG: str = field(default_factory=lambda: os.getenv("OPENAI_ORG"))
     azure_keys: dict = field(

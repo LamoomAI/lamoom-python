@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import typing as t
 from dataclasses import dataclass
@@ -41,6 +42,7 @@ class Lamoom:
     azure_keys: t.Dict[str, str] = None
     nebius_key: str = None
     custom_key: str = None
+    openrouter_key: str = None
     secrets: Secrets = None
 
     clients = {}
@@ -71,6 +73,9 @@ class Lamoom:
         if not self.nebius_key and self.secrets.NEBIUS_API_KEY:
             logger.debug(f"Using Nebius API key from secrets")
             self.nebius_key = self.secrets.NEBIUS_API_KEY
+        if not self.openrouter_key and self.secrets.OPENROUTER_KEY:
+            logger.debug(f"Using OpenRouter API key from secrets")
+            self.openrouter_key = self.secrets.OPENROUTER_KEY
         if not self.custom_key and self.secrets.CUSTOM_API_KEY:
             logger.debug(f"Using Custom API key from secrets")
             self.custom_key = self.secrets.CUSTOM_API_KEY
@@ -96,6 +101,8 @@ class Lamoom:
             self.clients[AI_MODELS_PROVIDER.GEMINI] = {"api_key": self.gemini_key}
         if self.nebius_key:
             self.clients[AI_MODELS_PROVIDER.NEBIUS] = {"api_key": self.nebius_key}
+        if self.openrouter_key:
+            self.clients[AI_MODELS_PROVIDER.OPENROUTER] = {"api_key": self.openrouter_key}
         if self.custom_key:
             self.clients[AI_MODELS_PROVIDER.CUSTOM] = {"api_key": self.custom_key}
         self.worker = SaveWorker()
@@ -146,6 +153,15 @@ class Lamoom:
                 'realm': None,
                 'base_url': None
             }
+        elif "openrouter" in parts[0].lower() and len(parts) == 3:
+            model_provider = parts[0] 
+            model_name = f"{parts[1]}/{parts[2]}"
+            return {
+                'provider': model_provider.lower(),
+                'model_name': model_name,
+                'realm': None,
+                'base_url': None
+            }
         elif "custom" in parts[0].lower():
             if len(parts) == 3:
                 model_provider = parts[0] 
@@ -166,22 +182,24 @@ class Lamoom:
                 'realm': None,
                 'base_url': None
             }
-            
+    
+    def get_default_context(self):
+        return {
+            'current_datetime_strftime': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'timezone': datetime.now().astimezone().tzname()
+        }
+    
+    def get_context(self, context: dict):
+        return {
+            **self.get_default_context(),
+            **context
+        }
+
     def init_attempt(self, model_info: dict) -> AttemptToCall:
         provider = model_info['provider']
         model_name = model_info['model_name']
                 
-        if provider in [AI_MODELS_PROVIDER.OPENAI.value, 
-                        AI_MODELS_PROVIDER.GEMINI.value, 
-                        AI_MODELS_PROVIDER.NEBIUS.value]:
-            return AttemptToCall(
-                    ai_model=OpenAIModel(
-                        provider=AI_MODELS_PROVIDER(provider),
-                        model=model_name,
-                    ),
-                    weight=100,
-                )   
-        elif provider == AI_MODELS_PROVIDER.CLAUDE.value:
+        if provider == AI_MODELS_PROVIDER.CLAUDE.value:
             return AttemptToCall(
                     ai_model=ClaudeAIModel(
                         model=model_name,
@@ -197,7 +215,7 @@ class Lamoom:
                     ),
                     weight=100,
                 )
-        else:
+        elif provider == AI_MODELS_PROVIDER.AZURE.value:
             return AttemptToCall(
                     ai_model=AzureAIModel(
                         realm=model_info['realm'],
@@ -205,6 +223,14 @@ class Lamoom:
                     ),
                     weight=100,
                 )
+        else:
+            return AttemptToCall(
+                    ai_model=OpenAIModel(
+                        provider=AI_MODELS_PROVIDER(provider),
+                        model=model_name,
+                    ),
+                    weight=100,
+                )   
     
     def init_behavior(self, model: str, provider_url: str = None) -> AIModelsBehaviour:
         main_model_info = self.extract_provider_name(model, provider_url)
@@ -252,7 +278,8 @@ class Lamoom:
         while prompt_attempts.initialize_attempt():
             current_attempt = prompt_attempts.current_attempt
             user_prompt = prompt.create_prompt(current_attempt)
-            calling_messages = user_prompt.resolve(context)
+            calling_context = self.get_context(context)
+            calling_messages = user_prompt.resolve(calling_context)
             
             for _ in range(0, count_of_retries):
                 try:
@@ -264,6 +291,7 @@ class Lamoom:
                         check_connection=check_connection,
                         stream_params=stream_params,
                         client_secrets=self.clients[current_attempt.ai_model.provider],
+                        modelname=model,
                         **params,
                     )
 
@@ -294,7 +322,7 @@ class Lamoom:
                         self.worker.add_task(
                             self.api_token,
                             prompt.service_dump(),
-                            context,
+                            calling_context,
                             result,
                             {**test_data, "call_model": model}
                         )

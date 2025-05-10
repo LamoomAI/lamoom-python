@@ -23,7 +23,6 @@ class FamilyModel(Enum):
 
 @dataclass(kw_only=True)
 class ClaudeAIModel(AIModel):
-    model: str
     max_tokens: int = C_4K
     api_key: str = None
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.CLAUDE
@@ -50,8 +49,6 @@ class ClaudeAIModel(AIModel):
         result = []
         last_role = None
         for message in messages:
-            if message.get("role") == "system":
-                message["role"] = "user"
             if last_role != message.get("role"):
                 result.append(message)
                 last_role = message.get("role")
@@ -72,19 +69,16 @@ class ClaudeAIModel(AIModel):
         """Process streaming response from Claude."""
         tool_call_started = False
         content = ""
-        stream_response.finish_reason = FINISH_REASON_FINISH
         
         try:
-            # Prepare messages for Claude
-            unified_messages = self.unify_messages_with_same_role(stream_response.messages)
             
+            unified_messages = self.unify_messages_with_same_role(stream_response.messages)
             call_kwargs = {
                 "model": self.model,
                 "max_tokens": max_tokens,
                 "messages": unified_messages,
                 **kwargs
             }
-            
             # Extract system prompt if present
             system_prompt = []
             for i, msg in enumerate(unified_messages):
@@ -98,7 +92,8 @@ class ClaudeAIModel(AIModel):
                 for text_chunk in stream.text_stream:
                     if check_connection and not check_connection(**stream_params):
                         raise ConnectionLostError("Connection was lost!")
-                        
+                    
+                    stream_response.set_streaming()
                     content += text_chunk
                     if stream_function:
                         stream_function(text_chunk, **stream_params)
@@ -114,11 +109,12 @@ class ClaudeAIModel(AIModel):
                             tool_call_started = True
                         continue
             stream_response.content = content
+            stream_response.set_finish_reason(FINISH_REASON_FINISH)
             return stream_response
             
         except Exception as e:
             stream_response.content = content
-            stream_response.finish_reason = FINISH_REASON_ERROR
+            stream_response.set_finish_reason(FINISH_REASON_ERROR)
             logger.exception("Exception during stream processing", exc_info=e)
             raise RetryableCustomError(f"Claude AI stream processing failed: {e}") from e
 

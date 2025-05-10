@@ -54,7 +54,7 @@ class WebCall:
             'q': query,
             'key': API_KEY,
             'cx': SEARCH_ID,
-            'num': 3
+            'num': 2
         }
 
         response = requests.get(url, params=params)
@@ -107,7 +107,7 @@ def perform_web_search(query: str) -> str:
 
 WEB_SEARCH_TOOL = ToolDefinition(
     name="web_call",
-    description="Performs a web search using a search engine to find up-to-date information or details not present in the internal knowledge.",
+    description="Performs a web search using a search engine to find up-to-date information or details not present in the internal knowledge. Today is {current_datetime_strftime} {timezone}.",
     parameters=[
         ToolParameter(name="query", type="string", description="The search query to use.", required=True)
     ],

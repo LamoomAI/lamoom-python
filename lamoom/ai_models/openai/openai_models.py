@@ -31,15 +31,16 @@ class FamilyModel(Enum):
     gpt4o_mini = "o4-mini-mini"
     instruct_gpt = "InstructGPT"
 
+
 BASE_URL_MAPPING = {
     'gemini': "https://generativelanguage.googleapis.com/v1beta/openai/",
-    'nebius': 'https://api.studio.nebius.ai/v1/'
+    'nebius': 'https://api.studio.nebius.ai/v1/',
+    'openrouter': 'https://openrouter.ai/api/v1',
 }
 
 
 @dataclass(kw_only=True)
 class OpenAIModel(AIModel):
-    model: t.Optional[str]
     max_tokens: int = C_16K
     support_functions: bool = False
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.OPENAI
@@ -80,6 +81,10 @@ class OpenAIModel(AIModel):
     def get_base_url(self) -> str | None:
         return BASE_URL_MAPPING.get(self.provider.value, None)
     
+    def is_provider_openai(self):
+        return self.provider == AI_MODELS_PROVIDER.OPENAI
+    
+    
     def get_metrics_data(self):
         return {
             "model": self.model,
@@ -108,7 +113,7 @@ class OpenAIModel(AIModel):
         """Process streaming response from OpenAI."""
         tool_call_started = False
         content = ""
-        
+
         try:
             call_kwargs = {
                 "messages": stream_response.messages,
@@ -126,20 +131,22 @@ class OpenAIModel(AIModel):
                 delta = part.choices[0].delta
                 if part.choices and 'finish_reason' in part.choices[0]:
                     logger.info(f'Finish reason: {part.choices[0].finish_reason}')
-                    stream_response.finish_reason = part.choices[0].finish_reason
+                    stream_response.set_finish_reason(part.choices[0].finish_reason)
 
                 # Check for tool call markers
                 if TOOL_CALL_START_TAG in content and not tool_call_started:
                     tool_call_started = True
                     logger.info(f'tool_call_started: {tool_call_started}')
 
-                if not delta:
+                if not delta or (not delta.content and getattr(delta, 'reasoning', None)):
                     continue
                 content += delta.content
+                # logger.debug(f'Adding content {delta.content}')
+                if getattr(delta, 'reasoning', None) and delta.reasoning:
+                    logger.debug(f'Adding reasoning {delta.reasoning}')
+                    stream_response.reasoning += delta.reasoning
                 if stream_function:
                     stream_function(delta.content, **stream_params)
-
-                logger.debug(f'{delta.content}')
                 if tool_call_started and TOOL_CALL_END_TAG in content:
                     logger.info(f'tool_call_ended: {content}')
                     stream_response.is_detected_tool_call = True
@@ -153,6 +160,6 @@ class OpenAIModel(AIModel):
             
         except Exception as e:
             stream_response.content = content
-            stream_response.finish_reason = FINISH_REASON_ERROR
+            stream_response.set_finish_reason(FINISH_REASON_ERROR)
             logger.exception("Exception during stream processing", exc_info=e)
             raise RetryableCustomError(f"OpenAI stream processing failed: {e}") from e

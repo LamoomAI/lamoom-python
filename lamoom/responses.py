@@ -2,8 +2,11 @@ from decimal import Decimal
 import json
 import logging
 from dataclasses import dataclass, field
+import time
 import typing as t
 from lamoom.ai_models.tools.base_tool import TOOL_CALL_NAME, TOOL_CALL_RESULT_NAME, ToolCallResult, ToolDefinition, format_tool_result_message
+from lamoom.settings import SHOULD_INCLUDE_REASONING
+from lamoom.utils import current_timestamp_ms
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,7 @@ class AIResponse:
     _response: str = ""
     original_result: object = None
     content: str = ""
+    reasoning = ''
     finish_reason: str = ""
     prompt: Prompt = field(default_factory=Prompt)
     metrics: Metrics = field(default_factory=Metrics)
@@ -56,17 +60,34 @@ class StreamingResponse(AIResponse):
     detected_tool_calls: list[t.Optional[dict]] = field(default_factory=list)
     tool_registry: t.Dict[str, ToolDefinition] = field(default_factory=dict)
     messages: t.List[dict] = field(default_factory=list)
+    started_tmst: int = field(default_factory=current_timestamp_ms)
+    first_stream_tmst: int = None
+    finished_tmst: int = None
+
+    def set_streaming(self):
+        if not self.started_tmst:
+            self.started_tmst = current_timestamp_ms()
+
+    def set_finish_reason(self, reason: str):
+        self.finished_tmst = current_timestamp_ms()
+        self.finish_reason = reason
     
+    def add_assistant_message(self):
+        if SHOULD_INCLUDE_REASONING:
+            self.add_message("assistant", self.reasoning + '\n' + self.content)
+        else:
+            self.add_message("assistant", self.content)
+
     def add_message(self, role: str, content: str):
         self.messages.append({"role": role, "content": content})
     
     def add_tool_result(self, tool_result: ToolCallResult):
         logger.info(f'TOOL_CALL: Added tool results {tool_result}')
-        self.content +=f'\n<{TOOL_CALL_RESULT_NAME}="{tool_result.tool_name}">\n{json.dumps(tool_result.tool_name)}\n</{TOOL_CALL_RESULT_NAME}>\n'
-        self.content += format_tool_result_message(tool_result)
-        self.add_message("assistant", self.content)
+        self.add_assistant_message()
+        tool_result_message = format_tool_result_message(tool_result)
+        self.content += tool_result_message
+        self.add_message("user", tool_result_message)
 
-    
     @property
     def response(self) -> str:
         return self.content

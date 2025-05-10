@@ -124,6 +124,7 @@ Mix models easily, and districute the load across models. The system will automa
 - Gemini
 - OpenAI (w/ Azure OpenAI models)
 - Nebius with (Llama, DeepSeek, Mistral, Mixtral, dolphin, Qwen and others)
+- OpenRouter woth open source models
 - Custom providers
 
 Model string format is the following for Claude, Gemini, OpenAI, Nebius:

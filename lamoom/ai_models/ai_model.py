@@ -1,3 +1,4 @@
+import datetime
 import json
 import typing as t
 from dataclasses import dataclass
@@ -18,10 +19,12 @@ class AI_MODELS_PROVIDER(Enum):
     GEMINI = "gemini"
     NEBIUS = "nebius"
     CUSTOM = "custom"
+    OPENROUTER = "openrouter"
 
 
 @dataclass(kw_only=True)
 class AIModel:
+    model: t.Optional[str] = ''
     tiktoken_encoding: t.Optional[str] = "cl100k_base"
     provider: AI_MODELS_PROVIDER = None
     support_functions: bool = False
@@ -44,16 +47,19 @@ class AIModel:
         messages: t.List[t.Dict[str, str]],
         max_tokens: t.Optional[int],
         tool_registry: t.Dict[str, ToolDefinition] = {},
-        max_tool_iterations: int = 5,   # Safety limit for sequential calls
+        max_tool_iterations: int = 3,   # Safety limit for sequential calls
         stream_function: t.Callable = None,
         check_connection: t.Callable = None,
         stream_params: dict = {},
         client_secrets: dict = {},
+        modelname='',
         **kwargs,
     ) -> AIResponse:
         """Common call implementation that handles streaming and tool calls."""
         client = self.get_client(client_secrets)
+        logger.debug(f"[call] messages, tool_registry: {tool_registry}")
         tool_definitions = list(tool_registry.values())
+        logger.debug(f"[call] tool_definitions: {tool_definitions}")
         # Inject tool prompts into first message
         current_messages = inject_tool_prompts(messages, tool_definitions)
         # Prepare streaming response
@@ -61,6 +67,7 @@ class AIModel:
             tool_registry=tool_registry,
             messages=current_messages
         )
+        modelname = modelname.replace('/', '_').replace('-', '_')
         attempts = max_tool_iterations
         while attempts > 0:
             try:
@@ -84,14 +91,19 @@ class AIModel:
                     self.handle_tool_call(parsed_tool_call, tool_registry)
                     # Add messages to history
                     logger.info(f'executed parsed_tool_call {parsed_tool_call}')
-                    stream_response.add_message("assistant", stream_response.content)
                     stream_response.add_tool_result(parsed_tool_call)
-                    attempts -= 1
+                    with open(f'test_web_call_{modelname}_{attempts}.txt', 'w', encoding="utf-8") as f:
+                        f.write(json.dumps(stream_response.messages, indent=2))
                     logger.info(f'Left attempts: {attempts}, Added message {stream_response.messages[-1]}')
+                    attempts -= 1
                     continue
-                logger.info(f'Passing execution, finished')
+                stream_response.add_assistant_message()
+                with open(f'test_web_call_{modelname}_{attempts}.txt', 'w', encoding="utf-8") as f:
+                    f.write(json.dumps(stream_response.messages, indent=2))
+                logger.info(f'Passing execution, finished. {attempts}')
                 break
-            except RetryableCustomError:
+            except RetryableCustomError as e:
+                logger.exception(f'RetryableCustomError {e}')
                 attempts -= 1
                 continue                
         return stream_response
