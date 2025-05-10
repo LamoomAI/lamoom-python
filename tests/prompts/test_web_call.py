@@ -44,13 +44,13 @@ def test_web_call(client):
     # with open('test_web_call_claude_3_7.txt', 'w', encoding="utf-8") as f:
     #     f.write(json.dumps(result.messages, indent=4))
     # assert result.content
-    # result = client.call(prompt.id, context, "openrouter/tngtech/deepseek-r1t-chimera:free", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
-    # assert result.content
-    # with open('test_web_call_openrouter_deepseek_r1.txt', 'w', encoding="utf-8") as f:
-    #     f.write(json.dumps(result.messages, indent=4))
-
-    result = client.call(prompt.id, context, "nebius/deepseek-ai/DeepSeek-R1")
+    result = client.call(prompt.id, context, "openrouter/tngtech/deepseek-r1t-chimera:free", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
     assert result.content
-    with open('test_web_call_nebius_deepseek_r1.txt', 'w', encoding="utf-8") as f:
+    with open('test_web_call_openrouter_deepseek_r1.txt', 'w', encoding="utf-8") as f:
         f.write(json.dumps(result.messages, indent=4))
+
+    # result = client.call(prompt.id, context, "nebius/deepseek-ai/DeepSeek-R1")
+    # assert result.content
+    # with open('test_web_call_nebius_deepseek_r1.txt', 'w', encoding="utf-8") as f:
+    #     f.write(json.dumps(result.messages, indent=4))
     assert 1 == 2

@@ -54,7 +54,7 @@ class WebCall:
             'q': query,
             'key': API_KEY,
             'cx': SEARCH_ID,
-            'num': 2
+            'num': LAMOOM_GOOGLE_SEARCH_RESULTS_COUNT
         }
 
         response = requests.get(url, params=params)
@@ -87,7 +87,6 @@ class WebCall:
             formatted += f"Snippet: {result.snippet}\n"
             formatted += f"Content: {result.content[:500]}...\n"
             formatted += f'</result_{i}>'
-        logger.debug(f"Adding into LLM context\n:{formatted}")
         return formatted
     
     @staticmethod

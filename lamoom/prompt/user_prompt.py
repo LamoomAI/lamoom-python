@@ -3,6 +3,7 @@ import typing as t
 from collections import defaultdict
 from dataclasses import dataclass, field
 
+from lamoom.ai_models.tools.base_tool import ToolDefinition, inject_tool_prompts
 import tiktoken
 
 from lamoom import settings
@@ -63,7 +64,7 @@ class UserPrompt(BasePrompt):
     def __post_init__(self):
         self.encoding = tiktoken.get_encoding(self.tiktoken_encoding)
 
-    def resolve(self, context: t.Dict) -> CallingMessages:
+    def resolve(self, context: t.Dict, tool_registry: t.Dict[str, ToolDefinition]) -> CallingMessages:
         pipe = {}
         prompt_budget = 0
         ordered_pipe = dict((value, i) for i, value in enumerate(self.pipe))

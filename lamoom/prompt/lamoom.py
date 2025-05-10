@@ -2,10 +2,8 @@ from datetime import datetime
 import logging
 import typing as t
 from dataclasses import dataclass
-from decimal import Decimal
 import requests
-import time
-from lamoom.ai_models.tools.errors import ToolCallError
+from lamoom.ai_models.tools.base_tool import inject_tool_prompts
 from lamoom.settings import LAMOOM_API_URI
 from lamoom import Secrets, settings    
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER
@@ -14,7 +12,6 @@ from lamoom.ai_models.behaviour import AIModelsBehaviour, PromptAttempts
 from lamoom.ai_models.openai.azure_models import AzureAIModel
 from lamoom.ai_models.claude.claude_model import ClaudeAIModel
 from lamoom.ai_models.openai.openai_models import OpenAIModel
-from lamoom.ai_models.constants import C_16K
 
 from lamoom.exceptions import (
     LamoomPromptIsnotFoundError,
@@ -22,11 +19,9 @@ from lamoom.exceptions import (
 )
 from lamoom.services.SaveWorker import SaveWorker
 from lamoom.prompt.prompt import Prompt
-from lamoom.prompt.user_prompt import UserPrompt
 
 from lamoom.responses import AIResponse
 from lamoom.services.lamoom import LamoomService
-from lamoom.utils import current_timestamp_ms
 import json
 
 logger = logging.getLogger(__name__)
@@ -266,7 +261,6 @@ class Lamoom:
         """
 
         logger.debug(f"Calling {prompt_id}")
-        start_time = current_timestamp_ms()
         prompt = self.get_prompt(prompt_id, version)
         
         behaviour = self.init_behavior(model, provider_url)
@@ -279,12 +273,15 @@ class Lamoom:
             current_attempt = prompt_attempts.current_attempt
             user_prompt = prompt.create_prompt(current_attempt)
             calling_context = self.get_context(context)
-            calling_messages = user_prompt.resolve(calling_context)
+            # Inject tool prompts into first message
+            calling_messages = user_prompt.resolve(calling_context, prompt.tool_registry)
+            messages = calling_messages.get_messages()
+            messages = inject_tool_prompts(messages, list(prompt.tool_registry.values()), calling_context)
             
             for _ in range(0, count_of_retries):
                 try:
                     result = current_attempt.ai_model.call(
-                        calling_messages.get_messages(),
+                        messages,
                         calling_messages.max_sample_budget,
                         tool_registry=prompt.tool_registry,
                         stream_function=stream_function,
@@ -292,40 +289,12 @@ class Lamoom:
                         stream_params=stream_params,
                         client_secrets=self.clients[current_attempt.ai_model.provider],
                         modelname=model,
+                        prompt=prompt,
+                        context=json.dumps(context),
+                        test_data=test_data,
+                        client=self,
                         **params,
                     )
-
-                    sample_budget = self.calculate_budget_for_text(
-                        user_prompt, result.get_message_str()
-                    )
-                    
-                    try:
-                        result.metrics.price_of_call = self.get_price(
-                            current_attempt,
-                            sample_budget,
-                            calling_messages.prompt_budget,
-                        )
-                    except Exception as e:
-                        logger.exception(f"Error while getting price: {e}")
-                        result.metrics.price_of_call = 0
-                    result.metrics.sample_tokens_used = sample_budget
-                    result.metrics.prompt_tokens_used = calling_messages.prompt_budget
-                    result.metrics.ai_model_details = (
-                        current_attempt.ai_model.get_metrics_data()
-                    )
-                    result.metrics.latency = current_timestamp_ms() - start_time
-
-                    if settings.USE_API_SERVICE and self.api_token:
-                        timestamp = int(time.time() * 1000)
-                        result.id = f"{prompt_id}#{timestamp}"
-                        
-                        self.worker.add_task(
-                            self.api_token,
-                            prompt.service_dump(),
-                            calling_context,
-                            result,
-                            {**test_data, "call_model": model}
-                        )
                     return result
                 except RetryableCustomError as e:
                     logger.exception(
@@ -394,28 +363,3 @@ class Lamoom:
         )
         
         return response
-    
-    def calculate_budget_for_text(self, user_prompt: UserPrompt, text: str) -> int:
-        if not text:
-            return 0
-        return len(user_prompt.encoding.encode(text))
-
-    def get_price(
-        self, attempt: AttemptToCall, sample_budget: int, prompt_budget: int
-    ) -> Decimal:
-        data = {
-                "provider": attempt.ai_model.provider.value,
-                "model": attempt.ai_model.name,
-                "output_tokens": sample_budget,
-                "input_tokens": prompt_budget,
-        }
-        
-        response = requests.post(
-            f"{LAMOOM_API_URI}/lib/pricing",
-            data=json.dumps(data),
-        )
-        
-        if response.status_code != 200:
-            return 0
-        
-        return response.json()["price"]

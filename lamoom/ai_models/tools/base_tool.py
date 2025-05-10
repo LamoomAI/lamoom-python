@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import json
 import re
 
+from lamoom.utils import resolve
+
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +16,10 @@ TOOL_CALL_START_TAG = f"<{TOOL_CALL_NAME}>"
 TOOL_CALL_END_TAG = f"</{TOOL_CALL_NAME}>"
 
 
-def get_tool_system_prommpt(tool_descriptions: str):
+def get_tool_system_prompt(tool_descriptions: str, context: t.Dict[str, str]):
     return  f"""You have next tools:
 ```
-{tool_descriptions}
+{resolve(tool_descriptions, context)}
 ```
 # Tool calling procedure
 
@@ -72,7 +74,8 @@ def format_tool_description(tool: ToolDefinition) -> str:
 
 def inject_tool_prompts(
     messages: t.List[dict],
-    available_tools: t.List[ToolDefinition]
+    available_tools: t.List[ToolDefinition],
+    context: t.Dict[str, str]
     ) -> t.List[dict]:
     """Injects tool descriptions and usage instructions into the system prompt."""
     if not available_tools:
@@ -80,7 +83,7 @@ def inject_tool_prompts(
         return messages
 
     tool_descriptions = "\n".join([format_tool_description(tool) for tool in available_tools])
-    tool_system_prompt = get_tool_system_prommpt(tool_descriptions)
+    tool_system_prompt = get_tool_system_prompt(tool_descriptions, context)
     # Find system prompt or prepend to user prompt
     modified_messages = list(messages) # Create a copy
     found_system = False

@@ -1,23 +1,18 @@
 import logging
 import typing as t
-from dataclasses import dataclass, field
-from decimal import Decimal
+from dataclasses import dataclass
 from enum import Enum
 
 from openai import OpenAI
 
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 from lamoom.ai_models.constants import C_128K, C_16K, C_32K, C_4K
-from lamoom.ai_models.openai.responses import OpenAIResponse, StreamingResponse
-from lamoom.ai_models.utils import get_common_args
+from lamoom.ai_models.openai.responses import StreamingResponse
 from lamoom.exceptions import ConnectionLostError, RetryableCustomError
-from lamoom.ai_models.tools.base_tool import TOOL_CALL_END_TAG, TOOL_CALL_START_TAG, ToolDefinition, inject_tool_prompts, parse_tool_call_block
-import json
+from lamoom.ai_models.tools.base_tool import TOOL_CALL_END_TAG, TOOL_CALL_START_TAG
 
-from openai.types.chat import ChatCompletionMessage as Message
-from lamoom.responses import FINISH_REASON_ERROR, Prompt
+from lamoom.responses import FINISH_REASON_ERROR
 
-from .utils import raise_openai_exception
 
 M_DAVINCI = "davinci"
 
@@ -141,7 +136,7 @@ class OpenAIModel(AIModel):
                 if not delta or (not delta.content and getattr(delta, 'reasoning', None)):
                     continue
                 content += delta.content
-                # logger.debug(f'Adding content {delta.content}')
+                print(f'D {delta}')
                 if getattr(delta, 'reasoning', None) and delta.reasoning:
                     logger.debug(f'Adding reasoning {delta.reasoning}')
                     stream_response.reasoning += delta.reasoning

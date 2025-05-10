@@ -28,6 +28,7 @@ DEFAULT_ENCODING = "cl100k_base"
 
 USE_API_SERVICE = parse_bool(os.environ.get("LAMOOM_USE_API_SERVICE", True))
 LAMOOM_API_URI = os.environ.get("LAMOOM_API_URI") or os.environ.get("FLOW_PROMPT_API_URI") or "https://api.lamoom.com"
+LAMOOM_GOOGLE_SEARCH_RESULTS_COUNT = os.environ.get("LAMOOM_GOOGLE_SEARCH_RESULTS_COUNT", 5)
 CACHE_PROMPT_FOR_EACH_SECONDS = int(
     os.environ.get("LAMOOM_CACHE_PROMPT_FOR_EACH_SECONDS", 5 * 60)
 )  # 5 minutes by default
