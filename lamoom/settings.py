@@ -40,10 +40,6 @@ PIPE_PROMPTS = {}
 FALLBACK_MODELS = []
 
 
-LAMOOM_CUSTOM_PROVIDERS: dict = json.loads(os.getenv("LAMOOM_CUSTOM_PROVIDERS", "{}"))
-print(f'LAMOOM_CUSTOM_PROVIDERS: {LAMOOM_CUSTOM_PROVIDERS}')
-
-
 @dataclass
 class Secrets:
     API_TOKEN: str = field(default_factory=lambda: os.getenv("LAMOOM_API_TOKEN", os.getenv("FLOW_PROMPT_API_TOKEN")))

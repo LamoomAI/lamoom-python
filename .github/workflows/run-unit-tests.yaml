@@ -19,6 +19,7 @@ jobs:
         echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env
         echo LAMOOM_API_URI=${{ secrets.LAMOOM_API_URI }} >> .env
         echo LAMOOM_API_TOKEN=${{ secrets.LAMOOM_API_TOKEN }} >> .env
+        echo LAMOOM_CUSTOM_PROVIDERS=${{ secrets.LAMOOM_CUSTOM_PROVIDERS }} >> .env
         echo NEBIUS_API_KEY=${{ secrets.NEBIUS_API_KEY }} >> .env
         echo CUSTOM_API_KEY=${{ secrets.CUSTOM_API_KEY }} >> .env
         echo GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} >> .env
