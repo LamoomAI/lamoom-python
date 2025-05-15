@@ -1,7 +1,7 @@
 from datetime import datetime
 import logging
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import requests
 from lamoom.ai_models.tools.base_tool import inject_tool_prompts
 from lamoom.settings import LAMOOM_API_URI
@@ -38,7 +38,7 @@ class Lamoom:
     claude_key: str = None
     gemini_key: str = None
     azure_keys: t.Dict[str, str] = None
-    custom_keys: t.Dict[str, str] = None
+    custom_keys: t.Dict[str, str] = field(default_factory=dict)
     secrets: Secrets = None
 
     clients = {}
