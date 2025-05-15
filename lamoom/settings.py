@@ -38,6 +38,9 @@ RECEIVE_PROMPT_FROM_SERVER = parse_bool(
 SHOULD_INCLUDE_REASONING = parse_bool(os.environ.get("SHOULD_INCLUDE_REASONING", True))
 PIPE_PROMPTS = {}
 FALLBACK_MODELS = []
+LAMOOM_CUSTOM_PROVIDERS = json.loads(
+    os.getenv("custom_keys", os.getenv("LAMOOM_CUSTOM_PROVIDERS", "{}"))
+)
 
 
 @dataclass
