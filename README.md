@@ -138,11 +138,12 @@ response_llm = client.call(agent.id, context, model = "azure/useast/gpt-4o")
 ```
 
 Custom model string format is the following:
-`"custom/{model_name}"`
-`provider_url` is required
+`"custom/{provider_name}/{model_name}"`
+where provider is provided in the env variable:
+LAMOOM_CUSTOM_PROVIDERS={"provider_name": {"base_url": "https://","key":"key"}}
 
 ```python
-response_llm = client.call(agent.id, context, model = "custom/o4-mini", provider_url = "your_model_url")
+response_llm = client.call(agent.id, context, model = "custom/provider_name/model_name")
 ```
 
 ### Lamoom Keys

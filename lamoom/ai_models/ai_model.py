@@ -21,9 +21,10 @@ class AI_MODELS_PROVIDER(Enum):
     AZURE = "azure"
     CLAUDE = "claude"
     GEMINI = "gemini"
-    NEBIUS = "nebius"
     CUSTOM = "custom"
-    OPENROUTER = "openrouter"
+
+    def is_custom(self):
+        return self == AI_MODELS_PROVIDER.CUSTOM
 
 
 encoding = tiktoken.get_encoding("cl100k_base")
@@ -33,8 +34,12 @@ encoding = tiktoken.get_encoding("cl100k_base")
 class AIModel:
     model: t.Optional[str] = ''
     tiktoken_encoding: t.Optional[str] = "cl100k_base"
-    provider: AI_MODELS_PROVIDER = None
     support_functions: bool = False
+    _provider_name: str = None
+
+    @property
+    def provider_name(self):
+        return self.provider.value if not self.provider.is_custom() else self._provider_name
 
     @property
     def name(self) -> str:
@@ -54,7 +59,7 @@ class AIModel:
         current_messages: t.List[t.Dict[str, str]],
         max_tokens: t.Optional[int],
         tool_registry: t.Dict[str, ToolDefinition] = {},
-        max_tool_iterations: int = 3,   # Safety limit for sequential calls
+        max_tool_iterations: int = 5,   # Safety limit for sequential calls
         stream_function: t.Callable = None,
         check_connection: t.Callable = None,
         stream_params: dict = {},
@@ -77,6 +82,7 @@ class AIModel:
         attempts = max_tool_iterations
         while attempts > 0:
             try:
+                stream_response.update_to_another_attempt()
                 stream_response = self.streaming(
                     client=model_client,
                     stream_response=stream_response,
@@ -92,6 +98,8 @@ class AIModel:
 
                     logger.info(f'parsed_tool_call {parsed_tool_call}')
                     if not parsed_tool_call or attempts <= 1:
+                        stream_response.add_assistant_message()
+                        self.save_call(stream_response, prompt, context, attempt=max_tool_iterations - attempts, client=client)
                         attempts -= 1
                         continue
                     # Execute tool call
@@ -104,7 +112,7 @@ class AIModel:
                     continue
                 stream_response.add_assistant_message()
                 self.save_call(stream_response, prompt, context, test_data=test_data, client=client)
-                logger.info(f'Passing execution, finished. {attempts}')
+                logger.info(f'Passing execution {modelname}, finished. {attempts}')
                 break
             except RetryableCustomError as e:
                 logger.exception(f'RetryableCustomError {e}')
@@ -115,22 +123,22 @@ class AIModel:
 
     def handle_tool_call(self, tool_call: ToolCallResult, tool_registry: t.Dict[str, ToolDefinition]) -> str:
         """Handle a tool call by executing the corresponding function from the registry."""
-        tool_name = tool_call.tool_name
+        function = tool_call.tool_name
         parameters = tool_call.parameters
         
-        tool_function = tool_registry.get(tool_name)
+        tool_function = tool_registry.get(function)
         if not tool_function:
-            logger.warning(f"Tool '{tool_name}' not found in registry")
-            return json.dumps({"error": f"Tool '{tool_name}' is not available."})
+            logger.warning(f"Tool '{function}' not found in registry")
+            return json.dumps({"error": f"Tool '{function}' is not available."})
             
         try:
-            logger.info(f"Executing tool '{tool_name}' with parameters: {parameters}")
+            logger.info(f"Executing tool '{function}' with parameters: {parameters}")
             result = tool_function.execution_function(**parameters)
-            logger.info(f"Tool '{tool_name}' executed successfully")
+            logger.info(f"Tool '{function}' executed successfully")
             tool_call.execution_result = result
             return json.dumps({"result": result})
         except Exception as e:
-            result = f"Error executing tool '{tool_name}'"
+            result = f"Error executing tool '{function}', Please try second time."
             logger.exception(result, exc_info=e)
             tool_call.execution_result = result
             return json.dumps({"error": f"{result}: {str(e)}"})
@@ -158,7 +166,7 @@ class AIModel:
             return 0
         return len(encoding.encode(text))
     
-    def save_call(self, stream_response: StreamingResponse, prompt: "Prompt", context: str, attempt: int=0, test_data: dict = None, client: t.Any = None):
+    def save_call(self, stream_response: StreamingResponse, prompt: "Prompt", context: str, attempt: int=0, test_data: dict = {}, client: t.Any = None):
 
         sample_budget = self.calculate_budget_for_text(
             stream_response.get_message_str()
@@ -174,7 +182,7 @@ class AIModel:
 
         if settings.USE_API_SERVICE and client.api_token:
             stream_response.id = f"{prompt.id}#{stream_response.started_tmst}" + (f"#{attempt}" if attempt else "")
-            self.worker.add_task(
+            client.worker.add_task(
                 client.api_token,
                 prompt.service_dump(),
                 context,

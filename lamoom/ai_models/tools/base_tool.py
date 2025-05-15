@@ -9,8 +9,8 @@ from lamoom.utils import resolve
 
 logger = logging.getLogger(__name__)
 
-TOOL_CALL_NAME = 'tool_call'
-TOOL_CALL_RESULT_NAME = 'tool_call_result'
+TOOL_CALL_NAME = 'function_call'
+TOOL_CALL_RESULT_NAME = 'function_result'
 # --- Constants for Prompting ---
 TOOL_CALL_START_TAG = f"<{TOOL_CALL_NAME}>"
 TOOL_CALL_END_TAG = f"</{TOOL_CALL_NAME}>"
@@ -23,21 +23,24 @@ def get_tool_system_prompt(tool_descriptions: str, context: t.Dict[str, str]):
 ```
 # Tool calling procedure
 
-Before calling any tool, please follow procedure. You're doing unnecessary calls of tools. Make a mindset of what you need to do.
+Before calling any function, please follow procedure. You're doing unnecessary calls of tools. Make a mindset of what you need to do.
 ## 1. Think out loud what you need to do
 ## 2. Provide 5 whys;
-## 3. Call a tool;
+## 3. Call a tool, you can call it when in <think>;
 
-If you need to use a tool, use the next format:
+<function_call_format_rules>
+If you need to use a function, use the next exactly format. That format will be parsed from your answer:
+</function_call_format_rules>
 ```
 """ + TOOL_CALL_START_TAG + """
 {
-"tool_name": "...",
+"function": "...",
 "parameters": {
  // parameters of the tool
 }
 }
 """ + TOOL_CALL_END_TAG + """
+```
 """
 
 
@@ -108,9 +111,11 @@ def parse_tool_call_block(text_response: str) -> t.Optional[ToolCallResult]:
     Parses the <tool_call> block from the model's text response using regex.
     Returns a ToolCallResult object if a valid tool call is found, None otherwise.
     """
+    logger.debug(f"Parsing tool call block: {text_response}")
     if not text_response:
         return None
-
+    if not TOOL_CALL_END_TAG in text_response:
+        return None
     # Regex to find the block, allowing for whitespace variations
     # DOTALL allows '.' to match newlines within the JSON block
     json_content = text_response[text_response.find(
@@ -123,23 +128,29 @@ def parse_tool_call_block(text_response: str) -> t.Optional[ToolCallResult]:
     try:
         parsed_data = json.loads(json_content)
         # Basic validation
-        if "tool_name" in parsed_data and (
+        if "function" in parsed_data and (
                 "parameters" in parsed_data and isinstance(parsed_data["parameters"], dict) or "parameters" not in parsed_data
             ):
-            logger.info(f"Successfully parsed tool call: {parsed_data['tool_name']}")
+            logger.info(f"Successfully parsed tool call: {parsed_data['function']}")
             return ToolCallResult(
                 content=text_response,
                 has_tool_call=True,
-                tool_name=parsed_data.get("tool_name"),
+                tool_name=parsed_data.get("function"),
                 parameters=parsed_data.get("parameters", {}),
                 execution_result=""
             )
         else:
-            logger.warning(f"Parsed JSON block lacks required 'tool_name' or 'parameters': {json_content}")
+            logger.warning(f"Parsed JSON block lacks required 'function' or 'parameters': {json_content}")
             return None
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode JSON from tool call block: {json_content}", exc_info=e)
-        return None
+        return ToolCallResult(
+                content=text_response,
+                has_tool_call=True,
+                tool_name=None,
+                parameters=None,
+                execution_result=str(e)
+            )
 
 
 def call_function(tool_name: str, parameters: dict, tool_registry={}) -> str:
@@ -179,8 +190,8 @@ def handle_tool_call(current_stream_part_content, tool_registry) -> ToolCallResu
     """
     parsed_tool_call = parse_tool_call_block(current_stream_part_content)
     
-    if not parsed_tool_call:
-        return None
+    if not parsed_tool_call or parsed_tool_call.error:
+        return parsed_tool_call
     tool_name = parsed_tool_call.tool_name
     parameters = parsed_tool_call.parameters
     logger.info(f"Custom tool call block parsed: {tool_name}")

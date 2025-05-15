@@ -11,3 +11,4 @@ dist
 .pytest_cache
 python
 .env.test
+tests/logs/*

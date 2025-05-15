@@ -28,9 +28,7 @@ class FamilyModel(Enum):
 
 
 BASE_URL_MAPPING = {
-    'gemini': "https://generativelanguage.googleapis.com/v1beta/openai/",
-    'nebius': 'https://api.studio.nebius.ai/v1/',
-    'openrouter': 'https://openrouter.ai/api/v1',
+    'gemini': "https://generativelanguage.googleapis.com/v1beta/openai/"
 }
 
 
@@ -42,6 +40,7 @@ class OpenAIModel(AIModel):
     family: str = None
     max_sample_budget: int = C_4K
     base_url: str = None
+    api_key: str = None
 
     def __str__(self) -> str:
         return f"openai-{self.model}-{self.family}"
@@ -73,9 +72,7 @@ class OpenAIModel(AIModel):
             "model": self.model,
         }
 
-    def get_base_url(self) -> str | None:
-        return BASE_URL_MAPPING.get(self.provider.value, None)
-    
+
     def is_provider_openai(self):
         return self.provider == AI_MODELS_PROVIDER.OPENAI
     
@@ -84,15 +81,16 @@ class OpenAIModel(AIModel):
         return {
             "model": self.model,
             "family": self.family,
-            "provider": self.provider.value,
-            "base_url": self.get_base_url() if self.base_url is None else self.base_url
+            "provider": self.provider.value if not self.provider.is_custom() else self.provider_name,
+            "base_url": self.base_url
         }
 
     def get_client(self, client_secrets: dict = {}):
+        base_url = client_secrets.get("base_url", None)
         return OpenAI(
             organization=client_secrets.get("organization", None),
             api_key=client_secrets["api_key"],
-            base_url=self.get_base_url() if self.base_url is None else self.base_url
+            base_url=client_secrets.get("base_url", None),
         )
 
     def streaming(
@@ -118,6 +116,7 @@ class OpenAIModel(AIModel):
             }
             if max_tokens:
                 call_kwargs["max_completion_tokens"] = min(max_tokens, self.max_sample_budget)
+            print(f"Calling OpenAI with params: {call_kwargs}")
             completion = client.chat.completions.create(**call_kwargs)
             for part in completion:
                 if not part.choices:
@@ -135,8 +134,8 @@ class OpenAIModel(AIModel):
 
                 if not delta or (not delta.content and getattr(delta, 'reasoning', None)):
                     continue
-                content += delta.content
-                print(f'D {delta}')
+                if delta.content:
+                    content += delta.content
                 if getattr(delta, 'reasoning', None) and delta.reasoning:
                     logger.debug(f'Adding reasoning {delta.reasoning}')
                     stream_response.reasoning += delta.reasoning

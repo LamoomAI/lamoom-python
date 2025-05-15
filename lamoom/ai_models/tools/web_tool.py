@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import logging
 
 from lamoom.ai_models.tools.base_tool import ToolDefinition, ToolParameter
+from lamoom.settings import LAMOOM_GOOGLE_SEARCH_RESULTS_COUNT
 
 load_dotenv()
 

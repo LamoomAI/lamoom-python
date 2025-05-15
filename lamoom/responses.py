@@ -27,10 +27,10 @@ class Prompt:
 
 @dataclass
 class Metrics:
-    price_of_call: Decimal = None
-    sample_tokens_used: int = None
-    prompt_tokens_used: int = None
-    ai_model_details: dict = None
+    price_of_call: Decimal = 0
+    sample_tokens_used: int = 0
+    prompt_tokens_used: int = 0
+    ai_model_details: dict = 0
     latency: int = None
 
 
@@ -64,6 +64,11 @@ class StreamingResponse(AIResponse):
     first_stream_tmst: int = None
     finished_tmst: int = None
 
+    def update_to_another_attempt(self):
+        self.is_detected_tool_call = False
+        self.content = ''
+        self.reasoning = ''
+
     def set_streaming(self):
         if not self.started_tmst:
             self.started_tmst = current_timestamp_ms()
@@ -82,7 +87,6 @@ class StreamingResponse(AIResponse):
         self.messages.append({"role": role, "content": content})
     
     def add_tool_result(self, tool_result: ToolCallResult):
-        logger.info(f'TOOL_CALL: Added tool results {tool_result}')
         self.add_assistant_message()
         tool_result_message = format_tool_result_message(tool_result)
         self.content += tool_result_message

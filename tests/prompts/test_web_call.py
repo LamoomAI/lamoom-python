@@ -30,27 +30,31 @@ def test_web_call(client):
     # initial version of the prompt
     prompt_id = 'test-web-search'
     prompt = Prompt(id=prompt_id) 
-    prompt.add("{text}", role='system')
+    prompt.add("{text}", role='user')
     
     prompt.add_tool(WEB_SEARCH_TOOL)
     print(f'prompt.tool_registry: {prompt.tool_registry}')
-    client.api_token = None
-    # result = client.call(prompt.id, context, "openai/o4-mini")
-    # with open('test_web_call_openai_o4.txt', 'w', encoding="utf-8") as f:
-    #     f.write(json.dumps(result.messages, indent=4 ))
-    # assert result.content
-
-    # result = client.call(prompt.id, context, "claude/claude-3-7-sonnet-latest")
-    # with open('test_web_call_claude_3_7.txt', 'w', encoding="utf-8") as f:
-    #     f.write(json.dumps(result.messages, indent=4))
-    # assert result.content
-    result = client.call(prompt.id, context, "openrouter/tngtech/deepseek-r1t-chimera:free", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    result = client.call(prompt.id, context, "openai/o4-mini")
+    with open('tests/logs/test_web_call_openai_o4.txt', 'w', encoding="utf-8") as f:
+        f.write(json.dumps(result.messages, indent=4 ))
     assert result.content
-    with open('test_web_call_openrouter_deepseek_r1.txt', 'w', encoding="utf-8") as f:
+
+    result = client.call(prompt.id, context, "claude/claude-3-7-sonnet-latest")
+    with open('tests/logs/test_web_call_claude_3_7.txt', 'w', encoding="utf-8") as f:
+        f.write(json.dumps(result.messages, indent=4))
+    assert result.content
+
+    result = client.call(prompt.id, context, "azure/useast/gpt-4o")
+    with open('tests/logs/test_web_call_azure_gpt_4o.txt', 'w', encoding="utf-8") as f:
+        f.write(json.dumps(result.messages, indent=4))
+    assert result.content
+
+    result = client.call(prompt.id, context, "custom/nvidia/deepseek-ai/deepseek-r1", stream_function=stream_function, check_connection=stream_check_connection, params={"stream": True}, stream_params={"validate": True, "end": "", "flush": True})
+    assert result.content
+    with open('tests/logs/test_web_call_nvidia_deepseek_r1.txt', 'w', encoding="utf-8") as f:
         f.write(json.dumps(result.messages, indent=4))
 
-    # result = client.call(prompt.id, context, "nebius/deepseek-ai/DeepSeek-R1")
-    # assert result.content
-    # with open('test_web_call_nebius_deepseek_r1.txt', 'w', encoding="utf-8") as f:
-    #     f.write(json.dumps(result.messages, indent=4))
-    assert 1 == 2
+    result = client.call(prompt.id, context, "custom/nebius/deepseek-ai/DeepSeek-R1")
+    assert result.content
+    with open('tests/logs/test_web_call_nebius_deepseek_r1.txt', 'w', encoding="utf-8") as f:
+        f.write(json.dumps(result.messages, indent=4))
