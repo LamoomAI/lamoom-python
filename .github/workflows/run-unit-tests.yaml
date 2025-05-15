@@ -46,7 +46,7 @@ jobs:
         python-version: 3.11
 
     - name: Install Python libraries
-      run: poetry install
+      run: poetry install --with dev
 
     - name: Run tests with pytest
       run: poetry run make test

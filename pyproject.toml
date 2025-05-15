@@ -13,8 +13,12 @@ openai = "^1.65.1"
 anthropic = "^0.31.2"
 httpx = "^0.27.2"
 beautifulsoup4 = "^4.13.4"
+pytest = "^8.3.5"
 
-[poetry.group.dev.dependencies]
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.2"
+ipykernel = "^6.29.5"
 poetry = "^1.7.1"
 isort = "^5.13.2"
 flake8 = "^7.0.0"
@@ -25,10 +29,6 @@ autopep8 = "^2.0.4"
 python-dotenv = "^1.0.1"
 twine = "^5.0.0"
 
-
-[tool.poetry.group.dev.dependencies]
-black = "^24.4.2"
-ipykernel = "^6.29.5"
 
 [build-system]
 requires = ["poetry-core"]
