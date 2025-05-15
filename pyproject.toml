@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lamoom"
-version = "0.1.39a0"
+version = "0.1.39"
 description = ""
 authors = ["Lamoom Engineering Team <engineering@lamoom.com>"]
 readme = "README.md"

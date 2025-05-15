@@ -162,7 +162,7 @@ class Lamoom:
                 model_name = '/'.join(parts[2:])
                 provider_name = parts[1].lower()
                 # Check if this is a registered custom provider
-                if provider_name in settings.LAMOOM_CUSTOM_PROVIDERS:
+                if provider_name in settings.Secrets.custom_keys:
                     return {
                         'provider': f"custom_{provider_name}",
                         'model_name': model_name,
