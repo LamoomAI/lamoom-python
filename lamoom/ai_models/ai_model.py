@@ -11,7 +11,7 @@ import tiktoken
 from lamoom import settings
 from lamoom.ai_models.tools.base_tool import ToolCallResult, ToolDefinition, parse_tool_call_block
 from lamoom.responses import AIResponse, StreamingResponse
-from lamoom.exceptions import RetryableCustomError
+from lamoom.exceptions import RetryableCustomError, StopStreamingError
 from lamoom.utils import current_timestamp_ms
 
 logger = logging.getLogger(__name__)
@@ -117,7 +117,13 @@ class AIModel:
             except RetryableCustomError as e:
                 logger.exception(f'RetryableCustomError {e}')
                 attempts -= 1
-                continue                
+                continue  
+            except StopStreamingError as e:
+                logger.exception(f'StopStreamingError {e}')
+                stream_response.add_assistant_message()
+                self.save_call(stream_response, prompt, context, attempt=max_tool_iterations - attempts, client=client)
+                logger.info(f'Passing execution {modelname}, finished. {attempts}')
+                break
         return stream_response
 
 

@@ -6,6 +6,10 @@ class RetryableCustomError(LamoomError):
     pass
 
 
+class StopStreamingError(LamoomError):
+    pass
+
+
 class LamoomPromptIsnotFoundError(LamoomError):
     pass
 
