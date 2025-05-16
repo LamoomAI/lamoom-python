@@ -143,6 +143,10 @@ class AIModel:
             logger.info(f"Tool '{function}' executed successfully")
             tool_call.execution_result = result
             return json.dumps({"result": result})
+        except StopStreamingError as e:
+            logger.exception(f"Tool '{function}' execution stopped: {e}")
+            tool_call.execution_result = str(e)
+            raise e
         except Exception as e:
             result = f"Error executing tool '{function}', Please try second time."
             logger.exception(result, exc_info=e)
