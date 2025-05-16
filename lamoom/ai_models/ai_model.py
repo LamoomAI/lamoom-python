@@ -122,8 +122,8 @@ class AIModel:
                 logger.exception(f'StopStreamingError {e}')
                 stream_response.add_assistant_message()
                 self.save_call(stream_response, prompt, context, attempt=max_tool_iterations - attempts, client=client)
-                logger.info(f'Passing execution {modelname}, finished. {attempts}')
-                break
+                logger.info(f'Failing execution {modelname} w/ StopStreamingError, finished. {attempts}')
+                raise e
         return stream_response
 
 
