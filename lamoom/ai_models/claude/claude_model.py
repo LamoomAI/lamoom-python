@@ -71,7 +71,6 @@ class ClaudeAIModel(AIModel):
         content = ""
         
         try:
-            
             unified_messages = self.unify_messages_with_same_role(stream_response.messages)
             call_kwargs = {
                 "model": self.model,
@@ -95,9 +94,12 @@ class ClaudeAIModel(AIModel):
                     
                     stream_response.set_streaming()
                     content += text_chunk
+
+                    # Only stream content if not in ignored tag
                     if stream_function:
-                        stream_function(text_chunk, **stream_params)
-                        
+                        if self._should_stream_content(text_chunk) and not tool_call_started:
+                            stream_function(text_chunk, **stream_params)
+
                     # Check for tool call markers
                     if tool_call_started and TOOL_CALL_END_TAG in content:
                         stream_response.is_detected_tool_call = True
@@ -108,6 +110,7 @@ class ClaudeAIModel(AIModel):
                         if not tool_call_started:
                             tool_call_started = True
                         continue
+                        
             stream_response.content = content
             stream_response.set_finish_reason(FINISH_REASON_FINISH)
             return stream_response

@@ -1,7 +1,6 @@
-
 import json
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import logging
 from _decimal import Decimal
@@ -29,6 +28,143 @@ class AI_MODELS_PROVIDER(Enum):
 
 encoding = tiktoken.get_encoding("cl100k_base")
 
+class TagParser:
+    """Parser for handling streaming content with ignore tags."""
+    MAX_BUFFER_SIZE = 50
+
+    def __init__(self, ignore_tags: t.List[str] = None):
+        self.ignore_tags = set(ignore_tags or [])
+        self.reset()
+
+    def reset(self):
+        self.state = {
+            'buffer': '',
+            'in_ignored_tag': False,
+            'ignored_tag': None,
+            'partial_tag_buffer': '',
+        }
+
+    def _is_partial_ignored_tag(self, buffer: str) -> bool:
+        if not buffer.startswith('<'):
+            return False
+        for tag in self.ignore_tags:
+            if tag.startswith(buffer[1:]):
+                return True
+        return False
+
+    def _is_valid_tag(self, tag: str) -> bool:
+        if not (tag.startswith('<') and tag.endswith('>')):
+            return False
+        tag_content = tag[1:-1].strip()
+        if tag_content.startswith('/'):
+            return len(tag_content) > 1
+        return len(tag_content) > 0
+
+    def text_to_stream_chunk(self, chunk: str) -> str:
+        return chunk
+        logger = logging.getLogger("TagParser")
+        logger.debug(f"[INPUT] chunk: {chunk!r}")
+
+        # Always process buffer first if it exists
+        if self.state['buffer']:
+            logger.debug(f"[BUFFER] Prepending buffer: {self.state['buffer']!r} to chunk: {chunk!r}")
+            chunk = self.state['buffer'] + chunk
+            self.state['buffer'] = ''
+
+        # If we're in an ignored tag, just buffer everything
+        if self.state['in_ignored_tag']:
+            self.state['buffer'] += chunk
+            close_tag = f'</{self.state["ignored_tag"]}>'
+            idx = self.state['buffer'].find(close_tag)
+            if idx == -1:
+                if len(self.state['buffer']) > self.MAX_BUFFER_SIZE:
+                    self.state['buffer'] = self.state['buffer'][-self.MAX_BUFFER_SIZE:]
+                logger.debug(f"[IGNORED] Still in ignored tag: {self.state['ignored_tag']!r}, buffer: {self.state['buffer']!r}")
+                return ''
+            self.state['buffer'] = self.state['buffer'][idx + len(close_tag):]
+            logger.debug(f"[IGNORED] Closed ignored tag: {self.state['ignored_tag']!r}")
+            self.state['in_ignored_tag'] = False
+            self.state['ignored_tag'] = None
+            # After closing ignored tag, process the rest of the buffer in the next call
+            return ''
+
+        # Handle partial tag buffer
+        if self.state['partial_tag_buffer']:
+            self.state['partial_tag_buffer'] += chunk
+            if '\n' in self.state['partial_tag_buffer']:
+                result = self.state['partial_tag_buffer']
+                self.state['partial_tag_buffer'] = ''
+                logger.debug(f"[PARTIAL] Newline in partial tag buffer, output: {result!r}")
+                return result
+            if '>' in self.state['partial_tag_buffer']:
+                gt_idx = self.state['partial_tag_buffer'].find('>')
+                tag = self.state['partial_tag_buffer'][:gt_idx + 1]
+                rest = self.state['partial_tag_buffer'][gt_idx + 1:]
+                if self._is_valid_tag(tag):
+                    tag_name = tag[1:-1].strip().split()[0]
+                    if tag_name in self.ignore_tags:
+                        self.state['in_ignored_tag'] = True
+                        self.state['ignored_tag'] = tag_name
+                        self.state['partial_tag_buffer'] = ''
+                        logger.debug(f"[PARTIAL] Entered ignored tag: {tag_name!r}")
+                        return ''
+                    else:
+                        result = self.state['partial_tag_buffer']
+                        self.state['partial_tag_buffer'] = ''
+                        logger.debug(f"[PARTIAL] Outputting non-ignored tag: {result!r}")
+                        return result
+                else:
+                    result = self.state['partial_tag_buffer']
+                    self.state['partial_tag_buffer'] = ''
+                    logger.debug(f"[PARTIAL] Outputting invalid tag: {result!r}")
+                    return result
+            if self._is_partial_ignored_tag(self.state['partial_tag_buffer']):
+                logger.debug(f"[PARTIAL] Buffering possible ignored tag: {self.state['partial_tag_buffer']!r}")
+                return ''
+            else:
+                result = self.state['partial_tag_buffer']
+                self.state['partial_tag_buffer'] = ''
+                logger.debug(f"[PARTIAL] Outputting not-ignored tag: {result!r}")
+                return result
+
+        # Main logic: flush up to the first ignored tag, then stop processing further in this call
+        output = ''
+        i = 0
+        while i < len(chunk):
+            c = chunk[i]
+            if c == '<':
+                # Check if this could be the start of an ignored tag
+                for tag in self.ignore_tags:
+                    if chunk[i+1:i+1+len(tag)] == tag:
+                        # Found start of ignored tag
+                        self.state['in_ignored_tag'] = True
+                        self.state['ignored_tag'] = tag
+                        self.state['buffer'] = chunk[i:]  # Buffer the rest for next call
+                        logger.debug(f"[MAIN] Entered ignored tag: {tag!r}, output: {output!r}, buffer: {self.state['buffer']!r}")
+                        return output
+                # Could be a partial ignored tag
+                for tag in self.ignore_tags:
+                    if tag.startswith(chunk[i+1:]):
+                        self.state['partial_tag_buffer'] = chunk[i:]
+                        logger.debug(f"[MAIN] Buffering possible partial ignored tag: {self.state['partial_tag_buffer']!r}")
+                        return output
+                # Not an ignored tag, output up to and including this char
+                if output:
+                    logger.debug(f"[MAIN] Output before non-ignored tag: {output!r}")
+                    return output
+                else:
+                    output += '<'
+                    i += 1
+                    continue
+            elif c == '\n':
+                output += '\n'
+                i += 1
+                continue
+            else:
+                output += c
+                i += 1
+        logger.debug(f"[MAIN] Final output: {output!r}")
+        return output
 
 @dataclass(kw_only=True)
 class AIModel:
@@ -36,6 +172,53 @@ class AIModel:
     tiktoken_encoding: t.Optional[str] = "cl100k_base"
     support_functions: bool = False
     _provider_name: str = None
+    stream_ignore_tags: t.List[str] = field(default_factory=list)
+    _tag_parser: TagParser = field(init=False, default=None)
+
+    def __post_init__(self):
+        self._tag_parser = TagParser(self.stream_ignore_tags)
+
+    def _should_stream_content(self, content: str) -> bool:
+        """Determine if content should be streamed based on ignore tags"""
+        return bool(self._tag_parser.text_to_stream_chunk(content))
+
+    def text_to_stream_chunk(self, chunk: str) -> str:
+        # If we have a buffered tag, prepend it to chunk
+        if self.state['tag_buffer']:
+            # If we find a newline, reset buffer and continue
+            if '\n' in chunk:
+                newline_pos = chunk.find('\n')
+                self.state['tag_buffer'] = ''  # Reset buffer on newline
+                return self.text_to_stream_chunk(chunk[newline_pos + 1:])
+                
+            chunk = self.state['tag_buffer'] + chunk
+            self.state['tag_buffer'] = ''
+        
+        if not chunk:
+            return ''
+
+        # Split only on newlines to handle them separately
+        for separator in ['\n', '\r\n']:
+            if not separator in chunk:
+                continue
+            text_to_stream = []
+            lines = chunk.split(separator)
+            for i, line in enumerate(lines):
+                if i < len(lines) - 1:
+                    line += separator
+                processed = self._process_chunk(line)
+                print(f'processed: {processed}, buffer: {self.state["tag_buffer"]}')
+                if processed:
+                    text_to_stream.append(processed)
+            return ''.join(text_to_stream)
+
+        processed = self._process_chunk(chunk)
+        print(f'processed: {processed}, buffer: {self.state["tag_buffer"]}')
+        return processed
+
+    def _reset_tag_parser(self):
+        """Reset tag parser state"""
+        self._tag_parser.reset()
 
     @property
     def provider_name(self):
@@ -72,6 +255,7 @@ class AIModel:
         **kwargs,
     ) -> AIResponse:
         """Common call implementation that handles streaming and tool calls."""
+        # self._reset_tag_parser()  # Reset parser state for new call
         model_client = self.get_client(client_secrets)
         # Prepare streaming response
         stream_response = StreamingResponse(

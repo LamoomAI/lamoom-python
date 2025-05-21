@@ -15,7 +15,8 @@ from lamoom.ai_models.openai.openai_models import OpenAIModel
 
 from lamoom.exceptions import (
     LamoomPromptIsnotFoundError,
-    RetryableCustomError
+    RetryableCustomError,
+    StopStreamingError
 )
 from lamoom.services.SaveWorker import SaveWorker
 from lamoom.prompt.prompt import Prompt
@@ -97,6 +98,7 @@ class Lamoom:
             }
         # Initialize custom providers from environment
         for provider_name, provider_config in self.custom_keys.items():
+            logger.info(f"Initializing custom provider {provider_name} {provider_config.get('base_url')}")
             provider_key = f"custom_{provider_name}"
             if provider_key not in self.clients:
                 self.clients[provider_key] = {
@@ -162,7 +164,7 @@ class Lamoom:
                 model_name = '/'.join(parts[2:])
                 provider_name = parts[1].lower()
                 # Check if this is a registered custom provider
-                if provider_name in settings.LAMOOM_CUSTOM_PROVIDERS:
+                if provider_name in self.custom_keys:
                     return {
                         'provider': f"custom_{provider_name}",
                         'model_name': model_name,
@@ -301,11 +303,16 @@ class Lamoom:
                         f"Attempt failed: {prompt_attempts.current_attempt} with retryable error: {e}"
                     )
                     break
+                except StopStreamingError as e:
+                    logger.exception(
+                        f"Attempt Stopped: {prompt_attempts.current_attempt} with non-retryable error: {e}"
+                    )
+                    raise e
                 except Exception as e:
                     logger.exception(
                         f"Attempt failed: {prompt_attempts.current_attempt} with non-retryable error: {e}"
                     )
-                    break
+                    raise e
                     
         logger.exception(
             "Prompt call failed, no attempts worked"

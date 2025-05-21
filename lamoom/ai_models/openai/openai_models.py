@@ -134,21 +134,32 @@ class OpenAIModel(AIModel):
 
                 if not delta or (not delta.content and getattr(delta, 'reasoning', None)):
                     continue
+
                 if delta.content:
+                    if stream_function:
+                        text_to_stream = self.text_to_stream_chunk(delta.content)
+                        if text_to_stream:
+                            stream_function(text_to_stream, **stream_params)
                     content += delta.content
+                    
+
                 if getattr(delta, 'reasoning', None) and delta.reasoning:
                     logger.debug(f'Adding reasoning {delta.reasoning}')
                     stream_response.reasoning += delta.reasoning
-                if stream_function:
-                    stream_function(delta.content, **stream_params)
+
                 if tool_call_started and TOOL_CALL_END_TAG in content:
                     logger.info(f'tool_call_ended: {content}')
                     stream_response.is_detected_tool_call = True
                     stream_response.content = content
                     break
+
                 if check_connection and not check_connection(**stream_params):
                     raise ConnectionLostError("Connection was lost!")
 
+            if stream_function:
+                text_to_stream = self.text_to_stream_chunk('')
+                if text_to_stream:
+                    stream_function(text_to_stream, **stream_params)
             stream_response.content = content
             return stream_response
             
