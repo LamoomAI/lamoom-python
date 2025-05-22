@@ -4,6 +4,7 @@ from lamoom.ai_models.ai_model import AIModel, TagParser
 from lamoom.responses import StreamingResponse
 from lamoom.ai_models.tools.base_tool import TOOL_CALL_START_TAG, TOOL_CALL_END_TAG
 
+
 class TestTagParser:
     @pytest.fixture
     def parser(self):
