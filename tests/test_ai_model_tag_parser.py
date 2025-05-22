@@ -50,7 +50,7 @@ class TestTagParser:
         assert parser.text_to_stream_chunk("ther>") == "<other>"  # Complete non-ignored tag
 
     def test_writing_tags(self, parser):
-        parser = TagParser(write_tags=['write'])
+        parser = TagParser(writing_tags=['write'])
         # Test partial tag handling
         assert parser.text_to_stream_chunk("Simple") == ""
         assert parser.text_to_stream_chunk("<w") == ""
@@ -63,10 +63,10 @@ class TestTagParser:
         assert parser.text_to_stream_chunk("after") == ""  # Content after ignored tag
 
         # Test partial non-ignored tag
-        assert parser.text_to_stream_chunk("hey ") == "hey "  # Output partial non-ignored tag
+        assert parser.text_to_stream_chunk("hey ") == ""  # Output partial non-ignored tag
         assert parser.text_to_stream_chunk("<") == ""  # Output partial non-ignored tag
         assert parser.text_to_stream_chunk("o") == ""  # Output partial non-ignored tag
-        assert parser.text_to_stream_chunk("ther>") == "<other>"  # Complete non-ignored tag
+        assert parser.text_to_stream_chunk("ther>") == ""  # Complete non-ignored tag
 
 
 class TestAIModelTagStreaming:

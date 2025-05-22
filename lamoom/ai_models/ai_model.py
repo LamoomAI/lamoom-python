@@ -44,15 +44,13 @@ class TagParser:
             'ignored_tag': None,
             'writing_tag': None,
             'tags': [],
+            'in_ignored_tag': False,
+            'in_writing_tag': True,
         }
         if self.writing_tags:
             self.state['in_writing_tag'] = False
-        else:
-            self.state['in_writing_tag'] = True
         if self.ignore_tags:
             self.state['in_ignored_tag'] = False
-        else:
-            self.state['in_ignored_tag'] = True
 
     def parse_tags(self, chunk: str) -> t.List[str]:
         matches = []
