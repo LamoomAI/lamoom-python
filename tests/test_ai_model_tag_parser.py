@@ -15,18 +15,19 @@ class TestTagParser:
         assert parser.text_to_stream_chunk("") == ""
 
     def test_ignored_tags(self, parser):
+        parser.reset()
         # Test ignored tags
-        assert parser.text_to_stream_chunk("Hello <think>world") == "Hello "
+        assert parser.text_to_stream_chunk("Hello <think>world" ) == "Hello "
         assert parser.text_to_stream_chunk("</think>") == ""
-        print(parser.state)
         assert parser.text_to_stream_chunk("Hello <reason>world</") == "Hello "
-        print(parser.state)
-        assert parser.text_to_stream_chunk("Hello <think>world</think> there") == "Hello "
-        print(parser.state)
-        assert parser.text_to_stream_chunk("") == " there"
-        print(parser.state)
+        # still in ignored tag reason
+        assert parser.text_to_stream_chunk("Hello <think>world</think> there") == ""
+        assert parser.text_to_stream_chunk("</") == ""
+        assert parser.text_to_stream_chunk("reason>") == ""  # Close ignored tag
+        assert parser.text_to_stream_chunk(" there") == " there"
 
     def test_non_ignored_tags(self, parser):
+        parser.reset()
         # Test non-ignored tags
         assert parser.text_to_stream_chunk("Hello <other>world</other>") == "Hello <other>world</other>"
         assert parser.text_to_stream_chunk("Hello <think>world</other>") == "Hello "
@@ -34,6 +35,7 @@ class TestTagParser:
         assert parser.text_to_stream_chunk("") == ''
 
     def test_partial_tags(self, parser):
+        parser.reset()
         # Test partial tag handling
         assert parser.text_to_stream_chunk("<t") == ""  # Buffer partial ignored tag
         assert parser.text_to_stream_chunk("hink>") == ""  # Complete ignored tag
@@ -43,9 +45,9 @@ class TestTagParser:
 
         # Test partial non-ignored tag
         assert parser.text_to_stream_chunk("hey ") == "hey "  # Output partial non-ignored tag
-        assert parser.text_to_stream_chunk("<") == "<"  # Output partial non-ignored tag
-        assert parser.text_to_stream_chunk("o") == "o"  # Output partial non-ignored tag
-        assert parser.text_to_stream_chunk("ther>") == "ther>"  # Complete non-ignored tag
+        assert parser.text_to_stream_chunk("<") == ""  # Output partial non-ignored tag
+        assert parser.text_to_stream_chunk("o") == ""  # Output partial non-ignored tag
+        assert parser.text_to_stream_chunk("ther>") == "<other>"  # Complete non-ignored tag
 
 
 class TestAIModelTagStreaming:
@@ -68,12 +70,15 @@ class TestAIModelTagStreaming:
             "<think>",
             "ignored",
             "</think>",
-            " world"
+            " world",
+            ""
         ]
         
         for chunk in chunks:
-            if model._should_stream_content(chunk):
-                mock_stream_function(chunk)
+            stream_chunk = model.text_to_stream_chunk(chunk)
+            if not stream_chunk:
+                continue
+            mock_stream_function(stream_chunk)
         
         # Only non-ignored content should be streamed
         assert mock_stream_function.call_count == 2
@@ -86,8 +91,10 @@ class TestAIModelTagStreaming:
         
         # Simulate streaming
         for chunk in content:
-            if model._should_stream_content(chunk):
-                mock_stream_function(chunk)
+            stream_chunk = model.text_to_stream_chunk(chunk)
+            if not stream_chunk:
+                continue
+            mock_stream_function(stream_chunk)
         
         # Tool call content should be accumulated but not streamed if in ignored tag
         assert mock_stream_function.call_count > 0
@@ -105,12 +112,15 @@ class TestAIModelTagStreaming:
             "</code>",
             " more",
             "</think>",
-            " End"
+            " End",
+            ""
         ]
         
         for chunk in chunks:
-            if model._should_stream_content(chunk):
-                mock_stream_function(chunk)
+            stream_chunk = model.text_to_stream_chunk(chunk)
+            if not stream_chunk:
+                continue
+            mock_stream_function(stream_chunk)
         
         # Only content outside ignored tags should be streamed
         assert mock_stream_function.call_count == 2
@@ -126,12 +136,15 @@ class TestAIModelTagStreaming:
             "ignored",
             "</t",
             "hink>",
-            " End"
+            " End",
+            ""
         ]
         
         for chunk in chunks:
-            if model._should_stream_content(chunk):
-                mock_stream_function(chunk)
+            stream_chunk = model.text_to_stream_chunk(chunk)
+            if not stream_chunk:
+                continue
+            mock_stream_function(stream_chunk)
         
         print(mock_stream_function.call_args_list)
         # Partial tags should be handled correctly
@@ -142,18 +155,22 @@ class TestAIModelTagStreaming:
     def test_newline_streaming(self, model, mock_stream_function, stream_response):
         # Test streaming with newlines
         chunks = [
-            "Line 1\n",
-            "<t\n",
-            "hink>ignored</t\n",
-            "hink>\n",
-            "Line 2"
+            "Line 1<<",
+            "<t",
+            "hink>ignored</t",
+            "hink>",
+            "Line 2<<",
+            ""
         ]
         
         for chunk in chunks:
-            if model._should_stream_content(chunk):
-                mock_stream_function(chunk)
+            stream_chunk = model.text_to_stream_chunk(chunk)
+            if not stream_chunk:
+                continue
+            mock_stream_function(stream_chunk)
+    
         print(mock_stream_function.call_args_list)
         # Newlines should break tags and be streamed
-        assert mock_stream_function.call_count == 2
-        assert "Line 1\n" in "".join(call[0][0] for call in mock_stream_function.call_args_list)
-        assert "\nLine 2" in "".join(call[0][0] for call in mock_stream_function.call_args_list)
+        assert mock_stream_function.call_count == 4
+        assert "Line 1<<" in "".join(call[0][0] for call in mock_stream_function.call_args_list)
+        assert "Line 2<<" in "".join(call[0][0] for call in mock_stream_function.call_args_list)

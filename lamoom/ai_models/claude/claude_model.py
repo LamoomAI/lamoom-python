@@ -97,7 +97,8 @@ class ClaudeAIModel(AIModel):
 
                     # Only stream content if not in ignored tag
                     if stream_function:
-                        if self._should_stream_content(text_chunk) and not tool_call_started:
+                        text_chunk = self.chunk_to_stream(text_chunk)
+                        if text_chunk and not tool_call_started:
                             stream_function(text_chunk, **stream_params)
 
                     # Check for tool call markers
