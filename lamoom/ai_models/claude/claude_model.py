@@ -96,9 +96,10 @@ class ClaudeAIModel(AIModel):
                     content += text_chunk
 
                     # Only stream content if not in ignored tag
-                    if stream_function:
-                        text_chunk = self.chunk_to_stream(text_chunk)
+                    if stream_function or self._tag_parser.is_custom_tags():
+                        text_chunk = self.text_to_stream_chunk(text_chunk)
                         if text_chunk and not tool_call_started:
+                            stream_response.streaming_content += text_chunk
                             stream_function(text_chunk, **stream_params)
 
                     # Check for tool call markers
@@ -111,7 +112,13 @@ class ClaudeAIModel(AIModel):
                         if not tool_call_started:
                             tool_call_started = True
                         continue
-                        
+
+            if stream_function or self._tag_parser.is_custom_tags():
+                text_to_stream = self.text_to_stream_chunk('')
+                if text_to_stream:
+                    stream_function(text_to_stream, **stream_params)
+                    stream_response.streaming_content += text_to_stream
+            
             stream_response.content = content
             stream_response.set_finish_reason(FINISH_REASON_FINISH)
             return stream_response

@@ -63,6 +63,7 @@ class StreamingResponse(AIResponse):
     started_tmst: int = field(default_factory=current_timestamp_ms)
     first_stream_tmst: int = None
     finished_tmst: int = None
+    streaming_content: str = ""
 
     def update_to_another_attempt(self):
         self.is_detected_tool_call = False

@@ -37,6 +37,9 @@ class TagParser:
         self.ignore_tags = list(set(ignore_tags or []))
         self.writing_tags = list(set(writing_tags or []))
         self.reset()
+    
+    def is_custom_tags(self):
+        return bool(self.ignore_tags or self.writing_tags)
 
     def reset(self):
         self.state = {
@@ -206,20 +209,15 @@ class AIModel:
     tiktoken_encoding: t.Optional[str] = "cl100k_base"
     support_functions: bool = False
     _provider_name: str = None
-    stream_ignore_tags: t.List[str] = field(default_factory=list)
-    _tag_parser: TagParser = field(init=False, default=None)
+    _tag_parser: TagParser = field(default=None, init=False)
 
-    def __post_init__(self):
-        self._tag_parser = TagParser(self.stream_ignore_tags)
-
-    def _reset_tag_parser(self):
-        """Reset tag parser state"""
-        self._tag_parser.reset()
+    def _init_tag_parser(self, ignore_tags: t.List[str] = None, writing_tags: t.List[str] = None):
+        self._tag_parser = TagParser(ignore_tags=ignore_tags, writing_tags=writing_tags)
 
     def text_to_stream_chunk(self, chunk: str) -> str:
         """Process incoming chunk of text and return the parsed result."""
         if not self._tag_parser:
-            raise ValueError("Tag parser is not initialized.")
+            return chunk
         return self._tag_parser.text_to_stream_chunk(chunk)
 
     @property
@@ -254,6 +252,8 @@ class AIModel:
         context: str = '',
         test_data: dict = {},
         client: t.Any = None,
+        ignore_tags: t.List[str] = None,
+        writing_tags: t.List[str] = None,
         **kwargs,
     ) -> AIResponse:
         """Common call implementation that handles streaming and tool calls."""
@@ -266,6 +266,7 @@ class AIModel:
         )
         modelname = modelname.replace('/', '_').replace('-', '_')
         attempts = max_tool_iterations
+        self._init_tag_parser(ignore_tags=ignore_tags, writing_tags=writing_tags)
         while attempts > 0:
             try:
                 stream_response.update_to_another_attempt()

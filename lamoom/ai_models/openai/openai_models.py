@@ -116,7 +116,7 @@ class OpenAIModel(AIModel):
             }
             if max_tokens:
                 call_kwargs["max_completion_tokens"] = min(max_tokens, self.max_sample_budget)
-            print(f"Calling OpenAI with params: {call_kwargs}")
+            logger.info(f"Calling OpenAI with params: {call_kwargs}")
             completion = client.chat.completions.create(**call_kwargs)
             for part in completion:
                 if not part.choices:
@@ -135,10 +135,12 @@ class OpenAIModel(AIModel):
                 if not delta or (not delta.content and getattr(delta, 'reasoning', None)):
                     continue
 
+
                 if delta.content:
-                    if stream_function:
+                    if stream_function or self._tag_parser.is_custom_tags():
                         text_to_stream = self.text_to_stream_chunk(delta.content)
                         if text_to_stream:
+                            stream_response.streaming_content += text_to_stream
                             stream_function(text_to_stream, **stream_params)
                     content += delta.content
                     
@@ -160,6 +162,7 @@ class OpenAIModel(AIModel):
                 text_to_stream = self.text_to_stream_chunk('')
                 if text_to_stream:
                     stream_function(text_to_stream, **stream_params)
+                    stream_response.streaming_content += text_to_stream
             stream_response.content = content
             return stream_response
             
