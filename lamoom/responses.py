@@ -52,6 +52,11 @@ class AIResponse:
     def get_message_str(self) -> str:
         return self.response
 
+    @property
+    def parsed_json(self) -> t.Optional[dict]:
+        parsed_json_response = get_json_from_response(self)
+        return parsed_json_response.parsed_content if parsed_json_response else None
+
 
 @dataclass(kw_only=True)
 class StreamingResponse(AIResponse):

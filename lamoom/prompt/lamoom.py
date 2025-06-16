@@ -278,7 +278,6 @@ class Lamoom:
             calling_messages = user_prompt.resolve(calling_context, prompt.tool_registry)
             messages = calling_messages.get_messages()
             messages = inject_tool_prompts(messages, list(prompt.tool_registry.values()), calling_context)
-            
             logger.info(f'self.clients: {self.clients}, [current_attempt.ai_model.provider_name]: {current_attempt.ai_model.provider_name}')
             for _ in range(0, count_of_retries):
                 try:
@@ -292,7 +291,7 @@ class Lamoom:
                         client_secrets=self.clients[current_attempt.ai_model.provider_name],
                         modelname=model,
                         prompt=prompt,
-                        context=json.dumps(context),
+                        context=context,
                         test_data=test_data,
                         client=self,
                         **params,

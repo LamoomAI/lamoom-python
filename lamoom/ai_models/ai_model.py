@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 from _decimal import Decimal
-
+from lamoom.prompt.base_prompt import BasePrompt
 import tiktoken
 
 from lamoom import settings
@@ -262,7 +262,14 @@ class AIModel:
         # Prepare streaming response
         stream_response = StreamingResponse(
             tool_registry=tool_registry,
-            messages=current_messages
+            messages=current_messages,
+            prompt=BasePrompt(
+                messages=current_messages,
+                functions=kwargs.get("tools"),
+                max_tokens=max_tokens,
+                temperature=kwargs.get("temperature"),
+                top_p=kwargs.get("top_p"),
+            )
         )
         modelname = modelname.replace('/', '_').replace('-', '_')
         attempts = max_tool_iterations
@@ -363,7 +370,7 @@ class AIModel:
             return 0
         return len(encoding.encode(text))
     
-    def save_call(self, stream_response: StreamingResponse, prompt: "Prompt", context: str, attempt: int=0, test_data: dict = {}, client: t.Any = None):
+    def save_call(self, stream_response: StreamingResponse, prompt: "Prompt", context: dict, attempt: int=0, test_data: dict = {}, client: t.Any = None):
 
         sample_budget = self.calculate_budget_for_text(
             stream_response.get_message_str()

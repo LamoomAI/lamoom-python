@@ -17,6 +17,8 @@ class BasePrompt:
     chats: t.List[ChatsEntity] = field(default_factory=list)
     pipe: t.List[str] = field(default_factory=list)
     functions: t.List[dict] = None
+    messages: t.List[dict] = field(default_factory=list)
+    max_tokens: int = 0
     top_p: float = 0.0
     temperature: float = 0.0
     # Add tool registry

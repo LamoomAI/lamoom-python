@@ -100,7 +100,8 @@ class ClaudeAIModel(AIModel):
                         text_chunk = self.text_to_stream_chunk(text_chunk)
                         if text_chunk and not tool_call_started:
                             stream_response.streaming_content += text_chunk
-                            stream_function(text_chunk, **stream_params)
+                            if stream_function:
+                                stream_function(text_chunk, **stream_params)
 
                     # Check for tool call markers
                     if tool_call_started and TOOL_CALL_END_TAG in content:
@@ -116,7 +117,8 @@ class ClaudeAIModel(AIModel):
             if stream_function or self._tag_parser.is_custom_tags():
                 text_to_stream = self.text_to_stream_chunk('')
                 if text_to_stream:
-                    stream_function(text_to_stream, **stream_params)
+                    if stream_function:
+                        stream_function(text_to_stream, **stream_params)
                     stream_response.streaming_content += text_to_stream
             
             stream_response.content = content

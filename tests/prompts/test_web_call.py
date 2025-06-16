@@ -30,6 +30,7 @@ def test_web_call(client):
     # initial version of the prompt
     prompt_id = 'test-web-search'
     prompt = Prompt(id=prompt_id) 
+    prompt.add("", role='system')
     prompt.add("{text}", role='user')
     
     prompt.add_tool(WEB_SEARCH_TOOL)

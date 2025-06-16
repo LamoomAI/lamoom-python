@@ -73,7 +73,9 @@ class TestTagParser:
 class TestAIModelTagStreaming:
     @pytest.fixture
     def model(self):
-        return AIModel(stream_ignore_tags=['think', 'code'])
+        model = AIModel()
+        model._init_tag_parser(ignore_tags=['think', 'reason'], writing_tags=[])
+        return model
 
     @pytest.fixture
     def mock_stream_function(self):

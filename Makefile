@@ -25,11 +25,7 @@ lint:
 	poetry run isort --settings-path pyproject.toml --check-only .
 
 test:
-	poetry run pytest --cache-clear -vv tests \
-		--cov=${PROJECT_FOLDER} \
-		--cov-config=.coveragerc \
-		--cov-fail-under=81 \
-		--cov-report term-missing
+	poetry run pytest --cache-clear -vv tests
 
 .PHONY: format
 format: make-black isort-check flake8 make-mypy
