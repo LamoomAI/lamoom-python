@@ -19,8 +19,11 @@ jobs:
         echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env
         echo LAMOOM_API_URI=${{ secrets.LAMOOM_API_URI }} >> .env
         echo LAMOOM_API_TOKEN=${{ secrets.LAMOOM_API_TOKEN }} >> .env
+        echo LAMOOM_CUSTOM_PROVIDERS=${{ secrets.LAMOOM_CUSTOM_PROVIDERS }} >> .env
         echo NEBIUS_API_KEY=${{ secrets.NEBIUS_API_KEY }} >> .env
         echo CUSTOM_API_KEY=${{ secrets.CUSTOM_API_KEY }} >> .env
+        echo GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} >> .env
+        echo SEARCH_ENGINE_ID=${{ secrets.SEARCH_ENGINE_ID }} >> .env
         cat .env
 
     - name: Install dependencies
@@ -30,15 +33,21 @@ jobs:
     - name: Install Poetry
       run: pip install poetry
 
+    - name: Cache Poetry Dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
     - name: Install Python
       uses: actions/setup-python@v3
       with:
         python-version: 3.11
-        cache: poetry
 
     - name: Install Python libraries
-      run: poetry install
+      run: poetry install --with dev
 
     - name: Run tests with pytest
-      run: |
-        poetry run make test
+      run: poetry run make test

@@ -26,9 +26,9 @@ class AzureAIModel(OpenAIModel):
                 self.family = FamilyModel.instruct_gpt.value
             elif self.deployment_id.startswith(("gpt3", "gpt-3")):
                 self.family = FamilyModel.chat.value
-            elif self.deployment_id.startswith("gpt-4o-mini"):
+            elif self.deployment_id.startswith("o4-mini-mini"):
                 self.family = FamilyModel.gpt4o_mini.value
-            elif self.deployment_id.startswith("gpt-4o"):
+            elif self.deployment_id.startswith("o4-mini"):
                 self.family = FamilyModel.gpt4o.value
             elif self.deployment_id.startswith(("gpt4", "gpt-4", "gpt")):
                 self.family = FamilyModel.gpt4.value

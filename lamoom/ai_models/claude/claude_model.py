@@ -1,20 +1,14 @@
 from lamoom.ai_models.ai_model import AI_MODELS_PROVIDER, AIModel
 import logging
-
-from lamoom.ai_models.constants import C_200K, C_4K
-from lamoom.responses import AIResponse
-from decimal import Decimal
-from enum import Enum
-
 import typing as t
 from dataclasses import dataclass
 
-from lamoom.ai_models.claude.responses import ClaudeAIReponse
 from lamoom.ai_models.claude.constants import HAIKU, SONNET, OPUS
-from lamoom.ai_models.utils import get_common_args
+from lamoom.ai_models.constants import C_4K
+from lamoom.responses import FINISH_REASON_ERROR, FINISH_REASON_FINISH, StreamingResponse
+from lamoom.ai_models.tools.base_tool import TOOL_CALL_END_TAG, TOOL_CALL_START_TAG
+from enum import Enum
 
-from openai.types.chat import ChatCompletionMessage as Message
-from lamoom.responses import Prompt
 from lamoom.exceptions import RetryableCustomError, ConnectionLostError
 import anthropic
 
@@ -25,11 +19,10 @@ class FamilyModel(Enum):
     haiku = "Claude 3 Haiku"
     sonnet = "Claude 3 Sonnet"
     opus = "Claude 3 Opus"
-
+    
 
 @dataclass(kw_only=True)
 class ClaudeAIModel(AIModel):
-    model: str
     max_tokens: int = C_4K
     api_key: str = None
     provider: AI_MODELS_PROVIDER = AI_MODELS_PROVIDER.CLAUDE
@@ -47,18 +40,15 @@ class ClaudeAIModel(AIModel):
                 f"Unknown family for {self.model}. Please add it obviously. Setting as Claude 3 Opus"
             )
             self.family = FamilyModel.opus.value
-
         logger.debug(f"Initialized ClaudeAIModel: {self}")
 
     def get_client(self, client_secrets: dict) -> anthropic.Anthropic:
         return anthropic.Anthropic(api_key=client_secrets.get("api_key"))
 
-    def uny_all_messages_with_same_role(self, messages: t.List[dict]) -> t.List[dict]:
+    def unify_messages_with_same_role(self, messages: t.List[dict]) -> t.List[dict]:
         result = []
         last_role = None
         for message in messages:
-            if message.get("role") == "system":
-                message["role"] = "user"
             if last_role != message.get("role"):
                 result.append(message)
                 last_role = message.get("role")
@@ -66,66 +56,84 @@ class ClaudeAIModel(AIModel):
                 result[-1]["content"] += message.get("content")
         return result
 
-
-    def call(self, messages: t.List[dict], max_tokens: int, client_secrets: dict = {}, **kwargs) -> AIResponse:
-        max_tokens = min(max_tokens, self.max_tokens)
-        
-        common_args = get_common_args(max_tokens)
-        kwargs = {
-            **common_args,
-            **self.get_params(),
-            **kwargs,
-        }
-        messages = self.uny_all_messages_with_same_role(messages)
-
-        logger.debug(
-            f"Calling {messages} with max_tokens {max_tokens} and kwargs {kwargs}"
-        )
-        client = self.get_client(client_secrets)
-
-        stream_function = kwargs.get("stream_function")
-        check_connection = kwargs.get("check_connection")
-        stream_params = kwargs.get("stream_params")
-
+    def streaming(
+        self,
+        client: anthropic.Anthropic,
+        stream_response: StreamingResponse,
+        max_tokens: int,
+        stream_function: t.Callable,
+        check_connection: t.Callable,
+        stream_params: dict,
+        **kwargs
+    ) -> StreamingResponse:
+        """Process streaming response from Claude."""
+        tool_call_started = False
         content = ""
-
+        
         try:
-            if kwargs.get("stream"):
-                with client.messages.stream(
-                    model=self.model, max_tokens=max_tokens, messages=messages
-                ) as stream:
-                    idx = 0
-                    for text in stream.text_stream:
-                        if idx % 5 == 0:
-                            if not check_connection(**stream_params):
-                                raise ConnectionLostError("Connection was lost!")
+            unified_messages = self.unify_messages_with_same_role(stream_response.messages)
+            call_kwargs = {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "messages": unified_messages,
+                **kwargs
+            }
+            # Extract system prompt if present
+            system_prompt = []
+            for i, msg in enumerate(unified_messages):
+                if msg.get('role') == "system":
+                    system_prompt.append(unified_messages.pop(i- len(system_prompt)).get('content'))
+            
+            if system_prompt:
+                call_kwargs["system"] = '\n'.join(system_prompt)
+            
+            with client.messages.stream(**call_kwargs) as stream:
+                for text_chunk in stream.text_stream:
+                    if check_connection and not check_connection(**stream_params):
+                        raise ConnectionLostError("Connection was lost!")
+                    
+                    stream_response.set_streaming()
+                    content += text_chunk
 
-                        stream_function(text, **stream_params)
-                        content += text
-                        idx += 1
-            else:
-                response = client.messages.create(
-                    model=self.model, max_tokens=max_tokens, messages=messages
-                )
-                content = response.content[0].text
-            return ClaudeAIReponse(
-                message=Message(content=content, role="assistant"),
-                content=content,
-                prompt=Prompt(
-                    messages=kwargs.get("messages"),
-                    functions=kwargs.get("tools"),
-                    max_tokens=max_tokens,
-                    temperature=kwargs.get("temperature"),
-                    top_p=kwargs.get("top_p"),
-                ),
-            )
+                    # Only stream content if not in ignored tag
+                    if stream_function or self._tag_parser.is_custom_tags():
+                        text_chunk = self.text_to_stream_chunk(text_chunk)
+                        if text_chunk and not tool_call_started:
+                            stream_response.streaming_content += text_chunk
+                            if stream_function:
+                                stream_function(text_chunk, **stream_params)
+
+                    # Check for tool call markers
+                    if tool_call_started and TOOL_CALL_END_TAG in content:
+                        stream_response.is_detected_tool_call = True
+                        stream_response.content = content
+                        logger.info(f'Found tool call request in {content}')
+                        break
+                    if TOOL_CALL_START_TAG in content:
+                        if not tool_call_started:
+                            tool_call_started = True
+                        continue
+
+            if stream_function or self._tag_parser.is_custom_tags():
+                text_to_stream = self.text_to_stream_chunk('')
+                if text_to_stream:
+                    if stream_function:
+                        stream_function(text_to_stream, **stream_params)
+                    stream_response.streaming_content += text_to_stream
+            
+            stream_response.content = content
+            stream_response.set_finish_reason(FINISH_REASON_FINISH)
+            return stream_response
+            
         except Exception as e:
-            logger.exception("[CLAUDEAI] failed to handle chat stream", exc_info=e)
-            raise RetryableCustomError(f"Claude AI call failed!")
+            stream_response.content = content
+            stream_response.set_finish_reason(FINISH_REASON_ERROR)
+            logger.exception("Exception during stream processing", exc_info=e)
+            raise RetryableCustomError(f"Claude AI stream processing failed: {e}") from e
 
     @property
     def name(self) -> str:
-        return self.model
+        return f"Claude {self.family}"
 
     def get_params(self) -> t.Dict[str, t.Any]:
         return {
@@ -136,5 +144,6 @@ class ClaudeAIModel(AIModel):
     def get_metrics_data(self) -> t.Dict[str, t.Any]:
         return {
             "model": self.model,
+            "family": self.family,
             "max_tokens": self.max_tokens,
         }

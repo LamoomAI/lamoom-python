@@ -1,11 +1,7 @@
 import logging
-import random
-import typing as t
-from copy import copy
 from dataclasses import dataclass
 
 from lamoom.ai_models.attempt_to_call import AttemptToCall
-from lamoom.exceptions import BehaviourIsNotDefined
 
 logger = logging.getLogger(__name__)
 

@@ -54,4 +54,4 @@ def test_loading_prompt_from_service(client: Lamoom):
     result = client.call(prompt.id, context, "azure/useast/gpt-4o")
     
     # should call the prompt with music
-    assert result.prompt.messages[-1] == {'role': 'user', 'content': 'music1\nmusic2'} 
+    assert result.messages[-2] == {'role': 'user', 'content': 'music1\nmusic2'} 

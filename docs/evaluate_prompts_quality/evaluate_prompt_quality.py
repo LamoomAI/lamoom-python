@@ -9,20 +9,6 @@ logger = logging.getLogger(__name__)
 
 lamoom = Lamoom()
 
-gpt4_behaviour = behaviour.AIModelsBehaviour(
-    attempts=[
-        AttemptToCall(
-            ai_model=AzureAIModel(
-                realm='useast',
-                deployment_id="gpt-4o",
-                max_tokens=C_128K,
-                support_functions=True,
-            ),
-            weight=100,
-        ),
-    ]
-)
-
 
 def main():
     for prompt in get_all_prompts():
@@ -41,7 +27,7 @@ def main():
             'prompt_data': prompt_chats,
             'prompt_id': prompt_id,
         }
-        result = lamoom.call(prompt_to_evaluate_prompt.id, context, gpt4_behaviour)
+        result = lamoom.call(prompt_to_evaluate_prompt.id, context, 'azure/useast/o4-mini')
         print(result.content)
 
 if __name__ == '__main__':

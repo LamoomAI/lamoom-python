@@ -124,6 +124,7 @@ Mix models easily, and districute the load across models. The system will automa
 - Gemini
 - OpenAI (w/ Azure OpenAI models)
 - Nebius with (Llama, DeepSeek, Mistral, Mixtral, dolphin, Qwen and others)
+- OpenRouter woth open source models
 - Custom providers
 
 Model string format is the following for Claude, Gemini, OpenAI, Nebius:
@@ -132,16 +133,17 @@ For Azure models format is the following:
 `"azure/{realm}/{model_name}"`
 
 ```python
-response_llm = client.call(agent.id, context, model = "openai/gpt-4o")
+response_llm = client.call(agent.id, context, model = "openai/o4-mini")
 response_llm = client.call(agent.id, context, model = "azure/useast/gpt-4o")
 ```
 
 Custom model string format is the following:
-`"custom/{model_name}"`
-`provider_url` is required
+`"custom/{provider_name}/{model_name}"`
+where provider is provided in the env variable:
+LAMOOM_CUSTOM_PROVIDERS={"provider_name": {"base_url": "https://","key":"key"}}
 
 ```python
-response_llm = client.call(agent.id, context, model = "custom/gpt-4o", provider_url = "your_model_url")
+response_llm = client.call(agent.id, context, model = "custom/provider_name/model_name")
 ```
 
 ### Lamoom Keys
@@ -169,14 +171,14 @@ prompt.add("You're {name}. Say Hello and ask what's their name.", role="system")
 
 # Call AI model with Lamoom
 context = {"name": "John Doe"}
-response = client.call(prompt.id, context, "openai/gpt-4o")
+response = client.call(prompt.id, context, "openai/o4-mini")
 print(response.content)
 ```
 
 ### Creating Tests While Using Prompts
 ```python
 # Call with test_data to automatically generate tests
-response = client.call(prompt.id, context, "openai/gpt-4o", test_data={
+response = client.call(prompt.id, context, "openai/o4-mini", test_data={
     'ideal_answer': "Hello, I'm John Doe. What's your name?", 
     'model_name': "gemini/gemini-1.5-flash"
 })
@@ -202,6 +204,14 @@ client.add_ideal_answer(
 )
 ```
 
+### To Add Search Credentials:
+- Add Search ENgine id from here:
+https://programmablesearchengine.google.com/controlpanel/create
+
+- Get A google Search Key:
+https://developers.google.com/custom-search/v1/introduction/?apix=true
+
+
 ### Monitoring and Management
 - **Test Dashboard**: Review created tests and scores at https://cloud.lamoom.com/tests
 - **Prompt Management**: Update prompts and rerun tests for published or saved versions
@@ -220,3 +230,4 @@ This project is licensed under the Apache2.0 License - see the [LICENSE](LICENSE
 
 ## Contact
 For support or contributions, please contact us via GitHub Issues.
+

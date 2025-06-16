@@ -1,6 +1,6 @@
+from dataclasses import dataclass, field
 import logging
 from copy import deepcopy
-from dataclasses import dataclass
 
 from lamoom import settings
 from lamoom.ai_models.attempt_to_call import AttemptToCall

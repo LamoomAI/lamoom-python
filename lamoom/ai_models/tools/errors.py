@@ -1,0 +1,2 @@
+class ToolCallError(Exception):
+    pass

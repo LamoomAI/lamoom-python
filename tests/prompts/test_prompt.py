@@ -15,7 +15,7 @@ def azure_ai_attempt():
     return AttemptToCall(
         ai_model=AzureAIModel(
             realm='useast',
-            deployment_id="gpt-4o",
+            deployment_id="o4-mini",
             max_tokens=C_128K,
             support_functions=True,
         ),
@@ -54,7 +54,7 @@ def test_prompt_initialize(azure_ai_attempt: AttemptToCall):
     user_prompt.add("Hello, how can I help you today?")
 
     context = {}
-    initialized_pipe = user_prompt.resolve(context)
+    initialized_pipe = user_prompt.resolve(context, {})
     messages = initialized_pipe.messages
     assert len(messages) == 1
     assert messages[0].content == "Hello, how can I help you today?"
@@ -69,7 +69,7 @@ def test_prompt_initialize_not_enough_budget(azure_ai_attempt:  AttemptToCall):
     user_prompt.min_sample_tokens = 1299  # Not enough tokens for the message
     user_prompt.model_max_tokens = 1300  # Not enough tokens for the message
     with pytest.raises(NotEnoughBudgetError):
-        user_prompt.resolve(context)
+        user_prompt.resolve(context, {})
 
 
 def test_prompt_show_pipe():
@@ -89,7 +89,7 @@ def test_prompt_left_budget(azure_ai_attempt:  AttemptToCall):
     user_prompt = pipe.create_prompt(azure_ai_attempt)
     user_prompt.model_max_tokens = 2030
     user_prompt.reserved_tokens_budget_for_sampling = 2030
-    initialized_pipe = user_prompt.resolve({})
+    initialized_pipe = user_prompt.resolve({}, {})
     assert (
         initialized_pipe.left_budget
         == user_prompt.model_max_tokens
@@ -104,7 +104,7 @@ def test_prompt_prompt_price(azure_ai_attempt:  AttemptToCall):
     user_prompt = pipe.create_prompt(azure_ai_attempt)
     user_prompt.model_max_tokens = 4030
     user_prompt.add("Hello " + 'world ' * 1000)
-    pipe = user_prompt.resolve({})
+    pipe = user_prompt.resolve({}, {})
     assert len(pipe.get_messages()) == 1
 
 
@@ -119,7 +119,7 @@ def test_prompt_calculate_budget_for_values(azure_ai_attempt:  AttemptToCall):
         "no priority. didn't fit. Hello {name}" + ("hello" * 1000), priority=2
     )
     user_prompt = pipe.create_prompt(azure_ai_attempt)
-    prompt = user_prompt.resolve({"name": "World"})
+    prompt = user_prompt.resolve({"name": "World"}, {})
     messages = prompt.get_messages()
     assert len(messages) == 2
     assert messages[0]["content"] == "Priority. Hello World"
